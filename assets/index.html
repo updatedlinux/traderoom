@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeRoom - Gestión de Riesgo para Trading</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="favicon/favicon.svg">
+    <link rel="icon" type="image/png" sizes="96x96" href="favicon/favicon-96x96.png">
+    <link rel="apple-touch-icon" href="favicon/apple-touch-icon.png">
+    <link rel="manifest" href="favicon/site.webmanifest">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+
+        /* Loader */
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: transform 0.8s ease-in-out;
+            transform: scale(1);
+        }
+
+        .loader img {
+            width: 80px;
+            height: 80px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.7;
+            }
+        }
+
+        .loader.hidden {
+            transform: scale(0);
+            pointer-events: none;
+        }
+
+        /* Login Section */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #00568E 0%, #0066A3 100%);
+            padding: 20px;
+        }
+
+        .login-box {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h2 {
+            color: #00568E;
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .login-form-group {
+            margin-bottom: 20px;
+        }
+
+        .login-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00568E;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .login-form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .login-form-group input:focus {
+            outline: none;
+            border-color: #00568E;
+        }
+
+        .login-btn {
+            width: 100%;
+            background: #00568E;
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 86, 142, 0.3);
+            margin-top: 10px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 86, 142, 0.4);
+            background: #0066A3;
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            color: #d32f2f;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .success-message {
+            color: #2e7d32;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #00568E 0%, #0066A3 100%);
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            height: 100px;
+        }
+
+        .logo {
+            width: 200px;
+            height: auto;
+            max-height: 60px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+            object-fit: contain;
+        }
+
+        .header-info {
+            color: white;
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header-info h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header-info .last-update {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border: 2px solid white;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: white;
+            color: #00568E;
+        }
+
+        /* Sidebar Menu */
+        .sidebar {
+            width: 250px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            min-height: calc(100vh - 100px);
+            position: fixed;
+            left: 0;
+            top: 100px;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .menu-item {
+            padding: 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .menu-item:hover {
+            background: #f8f9fa;
+            color: #00568E;
+        }
+
+        .menu-item.active {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #00568E;
+            border-left: 4px solid #00568E;
+        }
+
+        .menu-item i {
+            font-size: 20px;
+            width: 24px;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 250px;
+            margin-top: 100px;
+            padding: 30px;
+            min-height: calc(100vh - 100px);
+            box-sizing: border-box;
+            width: calc(100% - 250px);
+        }
+
+        .content-section {
+            display: none;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .content-section.active {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Section Styles */
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .section-header h2 {
+            color: #00568E;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00568E;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #00568E;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .data-table th {
+            background: #00568E;
+            color: white;
+            font-weight: 600;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Buttons */
+        .btn {
+            background: #00568E;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 86, 142, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 86, 142, 0.4);
+            background: #0066A3;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+
+        /* Cards */
+        .card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid #00568E;
+            margin-bottom: 20px;
+        }
+
+        .card h3 {
+            color: #00568E;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-value.positive {
+            color: #28a745;
+        }
+
+        .stat-value.negative {
+            color: #dc3545;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-badge.in_progress {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.target_hit {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.stopped_loss {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-badge.closed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .modal-header h2 {
+            color: #00568E;
+            font-size: 24px;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: #00568E;
+        }
+
+        /* Hidden content when not logged in */
+        .content-hidden {
+            display: none;
+        }
+
+        /* Trading Controls */
+        .trading-controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .trade-result-btn {
+            padding: 20px 40px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .trade-result-btn.itm {
+            background: #28a745;
+        }
+
+        .trade-result-btn.itm:hover {
+            background: #218838;
+        }
+
+        .trade-result-btn.otm {
+            background: #dc3545;
+        }
+
+        .trade-result-btn.otm:hover {
+            background: #c82333;
+        }
+
+        .trade-result-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .header {
+                padding: 15px 20px;
+            }
+
+            .logo {
+                width: 150px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loader -->
+    <div class="loader" id="loader">
+        <img src="logo.png" alt="Cargando...">
+    </div>
+
+    <!-- Login Section -->
+    <div id="loginSection" class="login-container">
+        <div class="login-box">
+            <h2><i class="fas fa-lock"></i> Iniciar Sesión</h2>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="login-form-group">
+                    <label><i class="fas fa-user"></i> Usuario</label>
+                    <input type="text" id="loginUsername" required autocomplete="username">
+                </div>
+                <div class="login-form-group">
+                    <label><i class="fas fa-key"></i> Contraseña</label>
+                    <input type="password" id="loginPassword" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                </button>
+                <div id="loginError" class="error-message" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content (hidden until logged in) -->
+    <div id="mainContent" class="content-hidden">
+        <!-- Header -->
+        <div class="header">
+            <img src="logo.png" alt="TradeRoom Logo" class="logo">
+            <div class="header-info">
+                <div>
+                    <h1>TradeRoom</h1>
+                    <div class="last-update" id="lastUpdate">Sistema de Gestión de Riesgo</div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span id="userInfo" style="margin-right: 10px;"></span>
+                    <button class="logout-btn" onclick="handleLogout()">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Menu -->
+        <div class="sidebar" id="sidebar">
+            <!-- Admin Menu -->
+            <div id="adminMenu" style="display: none;">
+                <div class="menu-item active" onclick="showSection('users')">
+                    <i class="fas fa-users"></i>
+                    <span>Usuarios</span>
+                </div>
+            </div>
+
+            <!-- Trader Menu -->
+            <div id="traderMenu" style="display: none;">
+                <div class="menu-item active" onclick="showSection('periods')">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Periodos</span>
+                </div>
+                <div class="menu-item" onclick="showSection('currentSession')">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Sesión Actual</span>
+                </div>
+                <div class="menu-item" onclick="showSection('statistics')">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Estadísticas</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Admin Section: Users -->
+            <div id="usersSection" class="content-section">
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-users"></i> Gestión de Usuarios</h2>
+                        <button class="btn" onclick="openCreateUserModal()">
+                            <i class="fas fa-plus"></i> Crear Usuario
+                        </button>
+                    </div>
+                    <div id="usersList">
+                        <p>Cargando usuarios...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trader Section: Periods -->
+            <div id="periodsSection" class="content-section">
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-calendar-alt"></i> Periodos de Trading</h2>
+                        <button class="btn" onclick="openCreatePeriodModal()">
+                            <i class="fas fa-plus"></i> Nuevo Periodo
+                        </button>
+                    </div>
+                    <div id="periodsList">
+                        <p>Cargando periodos...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trader Section: Current Session -->
+            <div id="currentSessionSection" class="content-section">
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-chart-line"></i> Sesión Actual</h2>
+                        <button class="btn" onclick="refreshCurrentSession()">
+                            <i class="fas fa-sync"></i> Actualizar
+                        </button>
+                    </div>
+                    <div id="currentSessionContent">
+                        <p>Selecciona un periodo y crea una sesión para hoy.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trader Section: Statistics -->
+            <div id="statisticsSection" class="content-section">
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-chart-bar"></i> Estadísticas</h2>
+                    </div>
+                    <div id="statisticsContent">
+                        <p>Cargando estadísticas...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Create User Modal (Admin) -->
+    <div id="createUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Crear Usuario</h2>
+                <span class="close" onclick="closeModal('createUser')">&times;</span>
+            </div>
+            <form id="createUserForm" onsubmit="handleCreateUser(event)">
+                <div class="form-group">
+                    <label>Usuario</label>
+                    <input type="text" id="newUsername" required>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="newPassword" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Rol</label>
+                    <select id="newUserRole" required>
+                        <option value="trader">Trader</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div id="createUserError" class="error-message" style="display: none;"></div>
+                <div id="createUserSuccess" class="success-message" style="display: none;"></div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">
+                    <i class="fas fa-save"></i> Crear Usuario
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Modal (Admin) -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Editar Usuario</h2>
+                <span class="close" onclick="closeModal('editUser')">&times;</span>
+            </div>
+            <form id="editUserForm" onsubmit="handleUpdateUser(event)">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label>Usuario</label>
+                    <input type="text" id="editUsername" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select id="editUserActive">
+                        <option value="true">Activo</option>
+                        <option value="false">Inactivo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Nueva Contraseña (dejar vacío para no cambiar)</label>
+                    <input type="password" id="editUserPassword" minlength="6">
+                </div>
+                <div id="editUserError" class="error-message" style="display: none;"></div>
+                <div id="editUserSuccess" class="success-message" style="display: none;"></div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">
+                    <i class="fas fa-save"></i> Guardar Cambios
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Period Modal (Trader) -->
+    <div id="createPeriodModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Crear Periodo de Trading</h2>
+                <span class="close" onclick="closeModal('createPeriod')">&times;</span>
+            </div>
+            <form id="createPeriodForm" onsubmit="handleCreatePeriod(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fecha de Inicio</label>
+                        <input type="date" id="periodStartDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Fin</label>
+                        <input type="date" id="periodEndDate" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Capital Inicial</label>
+                    <input type="number" id="periodInitialCapital" step="0.01" min="0" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Meta Diaria (%)</label>
+                        <input type="number" id="periodDailyTarget" step="0.01" min="0" max="100" value="15">
+                    </div>
+                    <div class="form-group">
+                        <label>Payout (%)</label>
+                        <input type="number" id="periodProfit" step="0.01" min="0" max="100" value="80">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Riesgo por Operación (%)</label>
+                        <input type="number" id="periodRisk" step="0.01" min="0" max="100" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Pasos de Martingala</label>
+                        <input type="number" id="periodMartingale" step="1" min="0" max="10" value="3">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Pérdida Máxima Diaria (%)</label>
+                    <input type="number" id="periodMaxLoss" step="0.01" min="0" max="100" value="6">
+                </div>
+                <div id="createPeriodError" class="error-message" style="display: none;"></div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">
+                    <i class="fas fa-save"></i> Crear Periodo
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Configuración
+        const API_BASE = window.location.origin.includes('traderoom.soyjonnymelendez.net') 
+            ? 'https://backtrade.soyjonnymelendez.net/api'
+            : '/api';
+
+        let currentUser = null;
+        let currentPeriod = null;
+        let currentSession = null;
+
+        // Inicialización
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.getElementById('loader').classList.add('hidden');
+            }, 500);
+            checkAuth();
+        });
+
+        // Autenticación
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`);
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    showMainContent();
+                } else {
+                    showLogin();
+                }
+            } catch (error) {
+                showLogin();
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('loginSection').style.display = 'flex';
+            document.getElementById('mainContent').classList.add('content-hidden');
+        }
+
+        function showMainContent() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('mainContent').classList.remove('content-hidden');
+            document.getElementById('userInfo').textContent = currentUser.username;
+            
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminMenu').style.display = 'block';
+                showSection('users');
+            } else {
+                document.getElementById('traderMenu').style.display = 'block';
+                showSection('periods');
+            }
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const btn = document.getElementById('loginBtn');
+            const errorDiv = document.getElementById('loginError');
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Iniciando sesión...';
+            errorDiv.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    showMainContent();
+                } else {
+                    errorDiv.textContent = data.error || 'Error al iniciar sesión';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error de conexión. Por favor intenta nuevamente.';
+                errorDiv.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Iniciar Sesión';
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch(`${API_BASE}/auth/logout`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                currentUser = null;
+                showLogin();
+            } catch (error) {
+                console.error('Error al cerrar sesión:', error);
+            }
+        }
+
+        // Navegación
+        function showSection(sectionName) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            
+            document.getElementById(sectionName + 'Section').classList.add('active');
+            event.target.closest('.menu-item').classList.add('active');
+
+            if (sectionName === 'users') loadUsers();
+            else if (sectionName === 'periods') loadPeriods();
+            else if (sectionName === 'currentSession') loadCurrentSession();
+            else if (sectionName === 'statistics') loadStatistics();
+        }
+
+        // Admin Functions
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/users`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    renderUsers(data.users);
+                }
+            } catch (error) {
+                document.getElementById('usersList').innerHTML = '<p class="error-message">Error al cargar usuarios</p>';
+            }
+        }
+
+        function renderUsers(users) {
+            const html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuario</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Fecha Creación</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${users.map(user => `
+                            <tr>
+                                <td>${user.id}</td>
+                                <td>${user.username}</td>
+                                <td>${user.role}</td>
+                                <td><span class="status-badge ${user.is_active ? 'active' : 'inactive'}">${user.is_active ? 'Activo' : 'Inactivo'}</span></td>
+                                <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                                <td>
+                                    <button class="btn btn-small" onclick="openEditUserModal(${user.id}, '${user.username}', ${user.is_active})">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('usersList').innerHTML = html;
+        }
+
+        function openCreateUserModal() {
+            document.getElementById('createUserModal').style.display = 'block';
+            document.getElementById('createUserForm').reset();
+        }
+
+        async function handleCreateUser(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('createUserError');
+            const successDiv = document.getElementById('createUserSuccess');
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: document.getElementById('newUsername').value,
+                        password: document.getElementById('newPassword').value,
+                        role: document.getElementById('newUserRole').value
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    successDiv.textContent = 'Usuario creado exitosamente';
+                    successDiv.style.display = 'block';
+                    errorDiv.style.display = 'none';
+                    setTimeout(() => {
+                        closeModal('createUser');
+                        loadUsers();
+                    }, 1500);
+                } else {
+                    errorDiv.textContent = data.error || 'Error al crear usuario';
+                    errorDiv.style.display = 'block';
+                    successDiv.style.display = 'none';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error de conexión';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        function openEditUserModal(id, username, isActive) {
+            document.getElementById('editUserId').value = id;
+            document.getElementById('editUsername').value = username;
+            document.getElementById('editUserActive').value = isActive;
+            document.getElementById('editUserPassword').value = '';
+            document.getElementById('editUserModal').style.display = 'block';
+        }
+
+        async function handleUpdateUser(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('editUserError');
+            const successDiv = document.getElementById('editUserSuccess');
+            const userId = document.getElementById('editUserId').value;
+            
+            const updateData = {
+                is_active: document.getElementById('editUserActive').value === 'true'
+            };
+            
+            const newPassword = document.getElementById('editUserPassword').value;
+            if (newPassword) {
+                updateData.password = newPassword;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(updateData)
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    successDiv.textContent = 'Usuario actualizado exitosamente';
+                    successDiv.style.display = 'block';
+                    errorDiv.style.display = 'none';
+                    setTimeout(() => {
+                        closeModal('editUser');
+                        loadUsers();
+                    }, 1500);
+                } else {
+                    errorDiv.textContent = data.error || 'Error al actualizar usuario';
+                    errorDiv.style.display = 'block';
+                    successDiv.style.display = 'none';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error de conexión';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        // Trader Functions
+        async function loadPeriods() {
+            try {
+                const response = await fetch(`${API_BASE}/periods`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    renderPeriods(data.periods);
+                }
+            } catch (error) {
+                document.getElementById('periodsList').innerHTML = '<p class="error-message">Error al cargar periodos</p>';
+            }
+        }
+
+        function renderPeriods(periods) {
+            if (periods.length === 0) {
+                document.getElementById('periodsList').innerHTML = '<p>No hay periodos creados. Crea uno nuevo para comenzar.</p>';
+                return;
+            }
+
+            const html = periods.map(period => `
+                <div class="card" onclick="selectPeriod(${period.id})" style="cursor: pointer;">
+                    <h3>Periodo ${period.id}</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Inicial:</span>
+                        <span class="stat-value">$${parseFloat(period.initial_capital).toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Actual:</span>
+                        <span class="stat-value">$${parseFloat(period.current_capital).toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Rango de Fechas:</span>
+                        <span class="stat-value">${new Date(period.start_date).toLocaleDateString()} - ${new Date(period.end_date).toLocaleDateString()}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Estado:</span>
+                        <span class="status-badge ${period.status}">${period.status}</span>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('periodsList').innerHTML = html;
+        }
+
+        async function selectPeriod(periodId) {
+            try {
+                const response = await fetch(`${API_BASE}/periods/${periodId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    currentPeriod = data.period;
+                    showSection('currentSession');
+                    loadCurrentSession();
+                }
+            } catch (error) {
+                alert('Error al cargar el periodo');
+            }
+        }
+
+        function openCreatePeriodModal() {
+            document.getElementById('createPeriodModal').style.display = 'block';
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('periodStartDate').value = today;
+            document.getElementById('periodEndDate').value = today;
+        }
+
+        async function handleCreatePeriod(event) {
+            event.preventDefault();
+            const errorDiv = document.getElementById('createPeriodError');
+            
+            try {
+                const response = await fetch(`${API_BASE}/periods`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        start_date: document.getElementById('periodStartDate').value,
+                        end_date: document.getElementById('periodEndDate').value,
+                        initial_capital: parseFloat(document.getElementById('periodInitialCapital').value),
+                        daily_target_pct: parseFloat(document.getElementById('periodDailyTarget').value) / 100,
+                        profit_pct: parseFloat(document.getElementById('periodProfit').value) / 100,
+                        risk_per_trade_pct: parseFloat(document.getElementById('periodRisk').value) / 100,
+                        martingale_steps: parseInt(document.getElementById('periodMartingale').value),
+                        max_daily_loss_pct: parseFloat(document.getElementById('periodMaxLoss').value) / 100
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    closeModal('createPeriod');
+                    loadPeriods();
+                } else {
+                    errorDiv.textContent = data.error || 'Error al crear periodo';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error de conexión';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        async function loadCurrentSession() {
+            if (!currentPeriod) {
+                document.getElementById('currentSessionContent').innerHTML = '<p>Selecciona un periodo primero.</p>';
+                return;
+            }
+
+            try {
+                // Crear o obtener sesión de hoy
+                const response = await fetch(`${API_BASE}/periods/${currentPeriod.id}/sessions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentSession = data.session;
+                    renderCurrentSession();
+                } else {
+                    document.getElementById('currentSessionContent').innerHTML = `<p class="error-message">${data.error}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('currentSessionContent').innerHTML = '<p class="error-message">Error al cargar sesión</p>';
+            }
+        }
+
+        function renderCurrentSession() {
+            if (!currentSession) return;
+
+            const session = currentSession;
+            const canTrade = session.status === 'in_progress';
+            const capital = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl);
+            const dailyTarget = session.dailyTarget || (parseFloat(session.starting_capital) * parseFloat(currentPeriod.daily_target_pct));
+            const maxLoss = session.maxDailyLoss || (parseFloat(session.starting_capital) * parseFloat(currentPeriod.max_daily_loss_pct));
+
+            const html = `
+                <div class="card">
+                    <h3>Sesión del ${new Date(session.date).toLocaleDateString()}</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Inicial:</span>
+                        <span class="stat-value">$${parseFloat(session.starting_capital).toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Actual:</span>
+                        <span class="stat-value ${parseFloat(session.daily_pnl) >= 0 ? 'positive' : 'negative'}">$${capital.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">PnL Diario:</span>
+                        <span class="stat-value ${parseFloat(session.daily_pnl) >= 0 ? 'positive' : 'negative'}">$${parseFloat(session.daily_pnl).toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Meta Diaria:</span>
+                        <span class="stat-value">$${dailyTarget.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Pérdida Máxima:</span>
+                        <span class="stat-value negative">-$${maxLoss.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Operaciones:</span>
+                        <span class="stat-value">${session.num_trades}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Estado:</span>
+                        <span class="status-badge ${session.status}">${session.status}</span>
+                    </div>
+                </div>
+
+                ${canTrade ? `
+                    <div class="trading-controls">
+                        <button class="btn trade-result-btn itm" onclick="registerTrade('ITM')">
+                            <i class="fas fa-check-circle"></i> ITM (Ganancia)
+                        </button>
+                        <button class="btn trade-result-btn otm" onclick="registerTrade('OTM')">
+                            <i class="fas fa-times-circle"></i> OTM (Pérdida)
+                        </button>
+                    </div>
+                ` : `
+                    <p class="error-message">No se pueden registrar más operaciones. Estado: ${session.status}</p>
+                `}
+
+                <div id="tradesList" style="margin-top: 30px;">
+                    <h3>Historial de Operaciones</h3>
+                    <div id="tradesContent">Cargando...</div>
+                </div>
+            `;
+
+            document.getElementById('currentSessionContent').innerHTML = html;
+            loadTrades();
+        }
+
+        async function loadTrades() {
+            if (!currentSession) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSession.id}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.session.trades) {
+                    renderTrades(data.session.trades);
+                }
+            } catch (error) {
+                document.getElementById('tradesContent').innerHTML = '<p>Error al cargar operaciones</p>';
+            }
+        }
+
+        function renderTrades(trades) {
+            if (trades.length === 0) {
+                document.getElementById('tradesContent').innerHTML = '<p>No hay operaciones registradas.</p>';
+                return;
+            }
+
+            const html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Stake</th>
+                            <th>Resultado</th>
+                            <th>PnL</th>
+                            <th>Capital Después</th>
+                            <th>Martingala</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${trades.map(trade => `
+                            <tr>
+                                <td>${trade.trade_number}</td>
+                                <td>$${parseFloat(trade.stake).toFixed(2)}</td>
+                                <td><span class="status-badge ${trade.result === 'ITM' ? 'active' : 'inactive'}">${trade.result}</span></td>
+                                <td class="${parseFloat(trade.pnl) >= 0 ? 'positive' : 'negative'}">$${parseFloat(trade.pnl).toFixed(2)}</td>
+                                <td>$${parseFloat(trade.capital_after).toFixed(2)}</td>
+                                <td>${trade.martingale_step}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('tradesContent').innerHTML = html;
+        }
+
+        async function registerTrade(result) {
+            if (!currentSession) return;
+
+            if (!confirm(`¿Registrar operación como ${result}?`)) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSession.id}/trades`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ result })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentSession = data.session;
+                    renderCurrentSession();
+                } else {
+                    alert(data.error || 'Error al registrar operación');
+                }
+            } catch (error) {
+                alert('Error de conexión');
+            }
+        }
+
+        async function refreshCurrentSession() {
+            await loadCurrentSession();
+        }
+
+        async function loadStatistics() {
+            document.getElementById('statisticsContent').innerHTML = '<p>Funcionalidad de estadísticas en desarrollo.</p>';
+        }
+
+        // Modal Functions
+        function closeModal(modalName) {
+            document.getElementById(modalName + 'Modal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+
+</html>
