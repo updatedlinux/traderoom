@@ -1,10 +1,8 @@
 const { Sequelize } = require('sequelize');
-const { User } = require('../models');
 require('dotenv').config();
 
 async function initDatabase() {
   let tempSequelize = null;
-  let sequelize = null;
 
   try {
     const dbName = process.env.DB_NAME;
@@ -38,34 +36,23 @@ async function initDatabase() {
     // Cerrar conexión temporal
     await tempSequelize.close();
 
-    // Paso 3: Conectar a la base de datos específica
+    // Paso 3: Ahora que la BD existe, usar la instancia de Sequelize del config
+    // que ya tiene los modelos cargados correctamente
     console.log('Conectando a la base de datos...');
-    sequelize = new Sequelize(dbName, dbUser, dbPass, {
-      host: dbHost,
-      port: dbPort,
-      dialect: 'mariadb',
-      logging: false,
-      timezone: '-05:00', // GMT-5 (Bogotá)
-      dialectOptions: {
-        timezone: 'local'
-      },
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000
-      }
-    });
-
+    const sequelize = require('../config/database');
+    
     await sequelize.authenticate();
     console.log('Conexión a la base de datos establecida.');
 
-    // Paso 4: Sincronizar modelos (crear tablas)
+    // Paso 4: Cargar modelos (ya están definidos con la instancia correcta)
+    const { User } = require('../models');
+
+    // Paso 5: Sincronizar modelos (crear tablas)
     console.log('Sincronizando modelos (creando tablas)...');
-    await sequelize.sync({ alter: true });
+    await sequelize.sync({ force: false, alter: true });
     console.log('Modelos sincronizados (tablas creadas/actualizadas).');
 
-    // Paso 5: Verificar si existe un usuario admin
+    // Paso 6: Verificar si existe un usuario admin
     const adminUser = await User.findOne({ where: { role: 'admin' } });
 
     if (!adminUser) {
