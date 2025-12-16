@@ -226,12 +226,19 @@ const registerTrade = async (req, res) => {
   try {
     const userId = req.session.userId;
     const { id: sessionId } = req.params;
-    const { result } = req.body;
+    const { result, currency_pair } = req.body;
 
     if (!result || (result !== 'ITM' && result !== 'OTM')) {
       return res.status(400).json({
         success: false,
         error: 'Resultado debe ser ITM o OTM'
+      });
+    }
+
+    if (!currency_pair || currency_pair.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Par de divisas es requerido'
       });
     }
 
@@ -252,7 +259,7 @@ const registerTrade = async (req, res) => {
       });
     }
 
-    const tradeResult = await tradingService.registerTrade(sessionId, result);
+    const tradeResult = await tradingService.registerTrade(sessionId, result, currency_pair);
 
     res.json({
       success: true,

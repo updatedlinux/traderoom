@@ -4,6 +4,9 @@ const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
 
+// Configurar timezone a GMT-5 (Bogotá)
+process.env.TZ = 'America/Bogota';
+
 const sequelize = require('./config/database');
 
 // Importar rutas

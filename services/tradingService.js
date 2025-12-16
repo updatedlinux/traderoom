@@ -49,11 +49,29 @@ function calculatePnL(stake, result, profitPct) {
 /**
  * Obtiene o crea una sesión diaria para un periodo
  * @param {number} periodId - ID del periodo
- * @param {Date} date - Fecha de la sesión (default: hoy)
+ * @param {Date} date - Fecha de la sesión (default: hoy en GMT-5)
  * @returns {Promise<DailySession>}
  */
-async function getOrCreateDailySession(periodId, date = new Date()) {
-  const dateStr = date.toISOString().split('T')[0];
+async function getOrCreateDailySession(periodId, date = null) {
+  // Obtener fecha actual en GMT-5 (Bogotá)
+  if (!date) {
+    // Obtener fecha actual en zona horaria de Bogotá (GMT-5)
+    const now = new Date();
+    const bogotaDateStr = now.toLocaleString('en-US', { 
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    // Convertir formato MM/DD/YYYY a YYYY-MM-DD
+    const [month, day, year] = bogotaDateStr.split('/');
+    date = new Date(`${year}-${month}-${day}`);
+  }
+  // Formatear fecha como YYYY-MM-DD
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
   
   // Buscar sesión existente para hoy
   let session = await DailySession.findOne({
@@ -93,11 +111,16 @@ async function getOrCreateDailySession(periodId, date = new Date()) {
  * Registra una nueva operación
  * @param {number} sessionId - ID de la sesión
  * @param {string} result - 'ITM' o 'OTM'
+ * @param {string} currencyPair - Par de divisas (ej: EUR/USD)
  * @returns {Promise<Object>} Resultado de la operación
  */
-async function registerTrade(sessionId, result) {
+async function registerTrade(sessionId, result, currencyPair) {
   if (result !== 'ITM' && result !== 'OTM') {
     throw new Error('Resultado debe ser ITM o OTM');
+  }
+  
+  if (!currencyPair || currencyPair.trim() === '') {
+    throw new Error('Par de divisas es requerido');
   }
 
   // Obtener sesión con periodo y trades
@@ -197,7 +220,8 @@ async function registerTrade(sessionId, result) {
     result: result,
     pnl: pnl,
     capital_after: currentCapital,
-    martingale_step: martingaleStep
+    martingale_step: martingaleStep,
+    currency_pair: currencyPair.trim().toUpperCase()
   });
 
   // Actualizar sesión

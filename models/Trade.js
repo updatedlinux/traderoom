@@ -43,6 +43,11 @@ const Trade = sequelize.define('Trade', {
     allowNull: false,
     defaultValue: 0,
     comment: 'Paso de martingala actual (0..martingale_steps)'
+  },
+  currency_pair: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    comment: 'Par de divisas (ej: EUR/USD, GBP/USD, etc.)'
   }
 }, {
   tableName: 'trades',

@@ -10,6 +10,10 @@ const sequelize = new Sequelize(
     port: process.env.DB_PORT || 3306,
     dialect: 'mariadb',
     logging: false,
+    timezone: '-05:00', // GMT-5 (Bogotá)
+    dialectOptions: {
+      timezone: 'local'
+    },
     pool: {
       max: 5,
       min: 0,

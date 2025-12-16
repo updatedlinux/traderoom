@@ -22,7 +22,8 @@ const validateCreatePeriod = [
 
 // Validación para registrar operación
 const validateRegisterTrade = [
-  body('result').isIn(['ITM', 'OTM']).withMessage('Resultado debe ser ITM o OTM')
+  body('result').isIn(['ITM', 'OTM']).withMessage('Resultado debe ser ITM o OTM'),
+  body('currency_pair').trim().isLength({ min: 3, max: 20 }).withMessage('Par de divisas es requerido (ej: EUR/USD)')
 ];
 
 const handleValidationErrors = (req, res, next) => {

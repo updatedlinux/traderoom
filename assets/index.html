@@ -1332,6 +1332,33 @@
                 </div>
 
                 ${canTrade ? `
+                    <div class="form-group" style="margin: 20px 0;">
+                        <label><i class="fas fa-exchange-alt"></i> Par de Divisas</label>
+                        <select id="currencyPairSelect" style="width: 100%; max-width: 300px;">
+                            <option value="">Selecciona un par</option>
+                            <option value="EUR/USD">EUR/USD</option>
+                            <option value="GBP/USD">GBP/USD</option>
+                            <option value="USD/JPY">USD/JPY</option>
+                            <option value="AUD/USD">AUD/USD</option>
+                            <option value="USD/CAD">USD/CAD</option>
+                            <option value="USD/CHF">USD/CHF</option>
+                            <option value="NZD/USD">NZD/USD</option>
+                            <option value="EUR/GBP">EUR/GBP</option>
+                            <option value="EUR/JPY">EUR/JPY</option>
+                            <option value="GBP/JPY">GBP/JPY</option>
+                            <option value="AUD/JPY">AUD/JPY</option>
+                            <option value="EUR/AUD">EUR/AUD</option>
+                            <option value="GBP/AUD">GBP/AUD</option>
+                            <option value="BTC/USD">BTC/USD</option>
+                            <option value="ETH/USD">ETH/USD</option>
+                            <option value="XAU/USD">XAU/USD (Oro)</option>
+                            <option value="XAG/USD">XAG/USD (Plata)</option>
+                        </select>
+                        <input type="text" id="currencyPairCustom" placeholder="O ingresa un par personalizado (ej: EUR/USD)" style="width: 100%; max-width: 300px; margin-top: 10px; display: none;">
+                        <button type="button" class="btn btn-small" onclick="toggleCustomPair()" style="margin-top: 10px;">
+                            <i class="fas fa-edit"></i> Par Personalizado
+                        </button>
+                    </div>
                     <div class="trading-controls">
                         <button class="btn trade-result-btn itm" onclick="registerTrade('ITM')">
                             <i class="fas fa-check-circle"></i> ITM (Ganancia)
@@ -1379,6 +1406,8 @@
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>Hora</th>
+                            <th>Par</th>
                             <th>Stake</th>
                             <th>Resultado</th>
                             <th>PnL</th>
@@ -1387,38 +1416,100 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${trades.map(trade => `
+                        ${trades.map(trade => {
+                            const tradeDate = new Date(trade.created_at);
+                            // Formatear hora en GMT-5 (Bogotá)
+                            const timeStr = tradeDate.toLocaleTimeString('es-CO', { 
+                                timeZone: 'America/Bogota',
+                                hour: '2-digit', 
+                                minute: '2-digit', 
+                                second: '2-digit' 
+                            });
+                            const dateStr = tradeDate.toLocaleDateString('es-CO', {
+                                timeZone: 'America/Bogota',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                            });
+                            return `
                             <tr>
                                 <td>${trade.trade_number}</td>
+                                <td>${dateStr} ${timeStr}</td>
+                                <td><strong>${trade.currency_pair || 'N/A'}</strong></td>
                                 <td>$${parseFloat(trade.stake).toFixed(2)}</td>
                                 <td><span class="status-badge ${trade.result === 'ITM' ? 'active' : 'inactive'}">${trade.result}</span></td>
                                 <td class="${parseFloat(trade.pnl) >= 0 ? 'positive' : 'negative'}">$${parseFloat(trade.pnl).toFixed(2)}</td>
                                 <td>$${parseFloat(trade.capital_after).toFixed(2)}</td>
                                 <td>${trade.martingale_step}</td>
                             </tr>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </tbody>
                 </table>
             `;
             document.getElementById('tradesContent').innerHTML = html;
         }
 
+        function toggleCustomPair() {
+            const select = document.getElementById('currencyPairSelect');
+            const custom = document.getElementById('currencyPairCustom');
+            if (custom.style.display === 'none') {
+                custom.style.display = 'block';
+                select.style.display = 'none';
+                custom.value = '';
+            } else {
+                custom.style.display = 'none';
+                select.style.display = 'block';
+                select.value = '';
+            }
+        }
+
         async function registerTrade(result) {
             if (!currentSession) return;
 
-            if (!confirm(`¿Registrar operación como ${result}?`)) return;
+            // Obtener el par de divisas
+            const select = document.getElementById('currencyPairSelect');
+            const custom = document.getElementById('currencyPairCustom');
+            let currencyPair = '';
+            
+            if (custom.style.display !== 'none' && custom.value.trim() !== '') {
+                currencyPair = custom.value.trim();
+            } else if (select.value) {
+                currencyPair = select.value;
+            } else {
+                alert('Por favor selecciona o ingresa un par de divisas');
+                return;
+            }
+
+            // Validar formato básico del par
+            if (!/^[A-Z]{3}\/[A-Z]{3}$/i.test(currencyPair)) {
+                if (!confirm(`El formato del par "${currencyPair}" no es estándar (ej: EUR/USD). ¿Deseas continuar de todas formas?`)) {
+                    return;
+                }
+            }
+
+            if (!confirm(`¿Registrar operación ${result} en ${currencyPair.toUpperCase()}?`)) return;
 
             try {
                 const response = await fetch(`${API_BASE}/sessions/${currentSession.id}/trades`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ result })
+                    body: JSON.stringify({ 
+                        result,
+                        currency_pair: currencyPair
+                    })
                 });
 
                 const data = await response.json();
                 if (data.success) {
                     currentSession = data.session;
+                    // Limpiar selector
+                    if (select) select.value = '';
+                    if (custom) custom.value = '';
+                    if (custom.style.display !== 'none') {
+                        toggleCustomPair();
+                    }
                     renderCurrentSession();
                 } else {
                     alert(data.error || 'Error al registrar operación');
