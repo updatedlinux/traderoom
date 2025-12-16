@@ -14,8 +14,8 @@
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="favicon/favicon.ico">
-    <link rel="icon" type="image/svg+xml" href="favicon/favicon.svg">
-    <link rel="icon" type="image/png" sizes="96x96" href="favicon/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png">
     <link rel="apple-touch-icon" href="favicon/apple-touch-icon.png">
     <link rel="manifest" href="favicon/site.webmanifest">
 
@@ -40,13 +40,21 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(255, 255, 255, 0.95);
-            display: flex;
-            justify-content: center;
-            align-items: center;
             z-index: 9999;
             transition: transform 0.8s ease-in-out;
             transform: scale(1);
+        }
+
+        .loader-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #00568E 0%, #0066A3 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .loader img {
@@ -647,7 +655,9 @@
 <body>
     <!-- Loader -->
     <div class="loader" id="loader">
-        <img src="logo.png" alt="Cargando...">
+        <div class="loader-overlay">
+            <img src="img/icon-traderoom.png" alt="Cargando...">
+        </div>
     </div>
 
     <!-- Login Section -->
@@ -675,7 +685,7 @@
     <div id="mainContent" class="content-hidden">
         <!-- Header -->
         <div class="header">
-            <img src="logo.png" alt="TradeRoom Logo" class="logo">
+            <img src="img/logo-traderoom.png" alt="TradeRoom Logo" class="logo">
             <div class="header-info">
                 <div>
                     <h1>TradeRoom</h1>
