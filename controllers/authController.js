@@ -41,11 +41,22 @@ const login = async (req, res) => {
     req.session.username = user.username;
     req.session.role = String(user.role).trim().toLowerCase(); // Normalizar el rol
     
-    console.log('DEBUG login - Sesión creada:', {
+    // Marcar la sesión como modificada para forzar guardado
+    req.session.touch();
+    
+    console.log('DEBUG login - Sesión configurada:', {
+      sessionId: req.sessionID,
       userId: req.session.userId,
       username: req.session.username,
       role: req.session.role,
       roleFromDB: user.role
+    });
+
+    // Guardar la sesión explícitamente y luego responder
+    req.session.save((err) => {
+      if (err) {
+        console.error('DEBUG login - Error al guardar sesión:', err);
+      }
     });
 
     res.json({
@@ -54,7 +65,8 @@ const login = async (req, res) => {
         id: user.id,
         username: user.username,
         role: user.role
-      }
+      },
+      sessionId: req.sessionID // Para debug
     });
   } catch (error) {
     console.error('Error en login:', error);
