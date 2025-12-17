@@ -39,7 +39,14 @@ const login = async (req, res) => {
     // Crear sesión
     req.session.userId = user.id;
     req.session.username = user.username;
-    req.session.role = user.role;
+    req.session.role = String(user.role).trim().toLowerCase(); // Normalizar el rol
+    
+    console.log('DEBUG login - Sesión creada:', {
+      userId: req.session.userId,
+      username: req.session.username,
+      role: req.session.role,
+      roleFromDB: user.role
+    });
 
     res.json({
       success: true,

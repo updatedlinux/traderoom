@@ -24,10 +24,11 @@ app.use(session({
   saveUninitialized: false,
   name: 'traderoom.sid', // Nombre de la cookie
   cookie: {
-    secure: false, // Permitir cookies en HTTP y HTTPS (ajustar según necesidad)
+    secure: true, // HTTPS en producción
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 horas
-    sameSite: 'lax' // Permitir cookies en requests cross-origin
+    sameSite: 'none', // Permitir cookies cross-site (necesario para subdominios diferentes)
+    domain: '.soyjonnymelendez.net' // Permitir compartir cookie entre subdominios
   }
 }));
 

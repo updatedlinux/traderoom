@@ -13,23 +13,41 @@ const requireAuth = (req, res, next) => {
 const requireRole = (...roles) => {
   return (req, res, next) => {
     if (!req.session || !req.session.userId) {
+      console.log('DEBUG requireRole - No hay sesión o userId');
       return res.status(401).json({ 
         success: false, 
         error: 'No autenticado.' 
       });
     }
     
-    // Debug: Log para verificar el rol en la sesión
-    console.log('DEBUG requireRole - Session role:', req.session.role, 'Required roles:', roles);
+    // Debug: Log completo de la sesión
+    console.log('DEBUG requireRole - Session completa:', {
+      userId: req.session.userId,
+      username: req.session.username,
+      role: req.session.role,
+      roleType: typeof req.session.role,
+      requiredRoles: roles
+    });
     
-    if (!req.session.role || !roles.includes(req.session.role)) {
-      console.log('DEBUG requireRole - Acceso denegado. Rol actual:', req.session.role, 'Roles requeridos:', roles);
+    // Normalizar el rol (trim y lowercase para comparación)
+    const sessionRole = req.session.role ? String(req.session.role).trim().toLowerCase() : null;
+    const normalizedRoles = roles.map(r => String(r).trim().toLowerCase());
+    
+    if (!sessionRole || !normalizedRoles.includes(sessionRole)) {
+      console.log('DEBUG requireRole - Acceso denegado. Rol actual:', sessionRole, 'Roles requeridos:', normalizedRoles);
       return res.status(403).json({ 
         success: false, 
-        error: 'No tienes permisos para acceder a este recurso.' 
+        error: 'No tienes permisos para acceder a este recurso.',
+        debug: {
+          sessionRole: req.session.role,
+          normalizedRole: sessionRole,
+          requiredRoles: roles,
+          normalizedRequired: normalizedRoles
+        }
       });
     }
     
+    console.log('DEBUG requireRole - Acceso permitido');
     next();
   };
 };
