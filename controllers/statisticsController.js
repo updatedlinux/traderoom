@@ -332,8 +332,10 @@ const generateSessionExcel = async (req, res) => {
       tradesSheet.getCell('A2').value = 'No hay operaciones registradas en esta sesión.';
     }
 
-    // Hoja 3: Gráficas
-    const chartsSheet = workbook.addWorksheet('Gráficas');
+    // Hoja 3: Datos para Gráficas
+    // Nota: ExcelJS no soporta crear gráficas programáticamente
+    // Los datos están organizados para que el usuario pueda crear gráficas fácilmente en Excel
+    const chartsSheet = workbook.addWorksheet('Datos para Gráficas');
 
     // Datos para gráficas
     if (trades.length > 0) {
@@ -359,57 +361,19 @@ const generateSessionExcel = async (req, res) => {
         chartsSheet.getCell(`C${index + 2}`).numFmt = '$#,##0.00';
       });
 
-      // Gráfica 1: Evolución del Capital
-      const capitalChart = chartsSheet.addChart({
-        type: 'line',
-        name: 'Evolución del Capital',
-        title: {
-          name: 'Evolución del Capital por Operación'
-        }
-      });
+      // Nota: ExcelJS no soporta gráficas de forma nativa
+      // Los datos están preparados para que el usuario pueda crear gráficas manualmente en Excel
+      // o usar Excel para generar gráficas automáticamente desde los datos
       
-      capitalChart.addSeries({
-        name: 'Capital Después',
-        categories: {
-          address: `A2:A${trades.length + 1}`,
-          sheet: chartsSheet
-        },
-        values: {
-          address: `B2:B${trades.length + 1}`,
-          sheet: chartsSheet
-        }
-      });
-
-      capitalChart.setPosition('A' + (trades.length + 3), 0, 0, 0);
-      capitalChart.width = 800;
-      capitalChart.height = 400;
-
-      // Gráfica 2: PnL Acumulado
-      const pnlChart = chartsSheet.addChart({
-        type: 'line',
-        name: 'PnL Acumulado',
-        title: {
-          name: 'PnL Acumulado por Operación'
-        }
-      });
+      // Agregar título para la sección de gráficas
+      chartsSheet.getCell('A' + (trades.length + 3)).value = 'NOTA:';
+      chartsSheet.getCell('A' + (trades.length + 3)).font = { bold: true, size: 12, color: { argb: 'FF00568E' } };
+      chartsSheet.getCell('A' + (trades.length + 4)).value = 'Los datos están listos para crear gráficas en Excel.';
+      chartsSheet.getCell('A' + (trades.length + 4)).font = { size: 10 };
+      chartsSheet.getCell('A' + (trades.length + 5)).value = 'Selecciona los datos y usa Insertar > Gráfica en Excel.';
+      chartsSheet.getCell('A' + (trades.length + 5)).font = { size: 10 };
       
-      pnlChart.addSeries({
-        name: 'PnL Acumulado',
-        categories: {
-          address: `A2:A${trades.length + 1}`,
-          sheet: chartsSheet
-        },
-        values: {
-          address: `C2:C${trades.length + 1}`,
-          sheet: chartsSheet
-        }
-      });
-
-      pnlChart.setPosition('A' + (trades.length + 25), 0, 0, 0);
-      pnlChart.width = 800;
-      pnlChart.height = 400;
-
-      // Gráfica 3: Resultados ITM vs OTM
+      // Preparar datos para gráfica de distribución ITM vs OTM
       const itmCount = trades.filter(t => t.result === 'ITM').length;
       const otmCount = trades.filter(t => t.result === 'OTM').length;
 
@@ -417,34 +381,44 @@ const generateSessionExcel = async (req, res) => {
       chartsSheet.getCell('F1').value = 'Cantidad';
       chartsSheet.getRow(1).getCell(5).font = { bold: true };
       chartsSheet.getRow(1).getCell(6).font = { bold: true };
+      chartsSheet.getRow(1).getCell(5).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF00568E' }
+      };
+      chartsSheet.getRow(1).getCell(6).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF00568E' }
+      };
+      chartsSheet.getRow(1).getCell(5).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      chartsSheet.getRow(1).getCell(6).font = { bold: true, color: { argb: 'FFFFFFFF' } };
       chartsSheet.getCell('E2').value = 'ITM';
       chartsSheet.getCell('F2').value = itmCount;
       chartsSheet.getCell('E3').value = 'OTM';
       chartsSheet.getCell('F3').value = otmCount;
-
-      const pieChart = chartsSheet.addChart({
-        type: 'pie',
-        name: 'Distribución de Resultados',
-        title: {
-          name: 'Distribución ITM vs OTM'
-        }
-      });
-
-      pieChart.addSeries({
-        name: 'Resultados',
-        categories: {
-          address: 'E2:E3',
-          sheet: chartsSheet
-        },
-        values: {
-          address: 'F2:F3',
-          sheet: chartsSheet
-        }
-      });
-
-      pieChart.setPosition('I' + (trades.length + 3), 0, 0, 0);
-      pieChart.width = 400;
-      pieChart.height = 400;
+      
+      // Agregar instrucciones para crear gráficas
+      chartsSheet.getCell('E' + (trades.length + 3)).value = 'Para crear gráfica de pastel:';
+      chartsSheet.getCell('E' + (trades.length + 3)).font = { bold: true, size: 10 };
+      chartsSheet.getCell('E' + (trades.length + 4)).value = '1. Selecciona E1:F3';
+      chartsSheet.getCell('E' + (trades.length + 4)).font = { size: 9 };
+      chartsSheet.getCell('E' + (trades.length + 5)).value = '2. Insertar > Gráfica de Pastel';
+      chartsSheet.getCell('E' + (trades.length + 5)).font = { size: 9 };
+      
+      chartsSheet.getCell('A' + (trades.length + 7)).value = 'Para crear gráfica de línea (Capital):';
+      chartsSheet.getCell('A' + (trades.length + 7)).font = { bold: true, size: 10 };
+      chartsSheet.getCell('A' + (trades.length + 8)).value = '1. Selecciona A1:B' + (trades.length + 1);
+      chartsSheet.getCell('A' + (trades.length + 8)).font = { size: 9 };
+      chartsSheet.getCell('A' + (trades.length + 9)).value = '2. Insertar > Gráfica de Línea';
+      chartsSheet.getCell('A' + (trades.length + 9)).font = { size: 9 };
+      
+      chartsSheet.getCell('A' + (trades.length + 11)).value = 'Para crear gráfica de línea (PnL Acumulado):';
+      chartsSheet.getCell('A' + (trades.length + 11)).font = { bold: true, size: 10 };
+      chartsSheet.getCell('A' + (trades.length + 12)).value = '1. Selecciona A1:C' + (trades.length + 1);
+      chartsSheet.getCell('A' + (trades.length + 12)).font = { size: 9 };
+      chartsSheet.getCell('A' + (trades.length + 13)).value = '2. Insertar > Gráfica de Línea';
+      chartsSheet.getCell('A' + (trades.length + 13)).font = { size: 9 };
 
       // Ajustar ancho de columnas
       chartsSheet.getColumn('A').width = 12;
