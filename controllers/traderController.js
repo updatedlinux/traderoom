@@ -270,7 +270,8 @@ const getSession = async (req, res) => {
     let nextStake = 0;
     let nextMartingaleStep = 0;
 
-    if (session.status === 'in_progress') {
+    // Permitir calcular stake si está in_progress o target_hit
+    if (session.status === 'in_progress' || session.status === 'target_hit') {
       if (lastTrade) {
         const stakeCalc = require('../services/tradingService').calculateNextStake(
           currentCapital,
@@ -288,6 +289,9 @@ const getSession = async (req, res) => {
         nextMartingaleStep = 0;
       }
     }
+    
+    // Contar el número real de trades
+    const actualTradeCount = trades.length;
 
     res.json({
       success: true,
@@ -298,6 +302,7 @@ const getSession = async (req, res) => {
         maxDailyLoss,
         nextStake,
         nextMartingaleStep,
+        num_trades: actualTradeCount, // Usar el conteo real de trades
         period: {
           profit_pct: period.profit_pct,
           risk_per_trade_pct: period.risk_per_trade_pct,

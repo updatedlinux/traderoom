@@ -1406,7 +1406,10 @@
             if (!currentSession) return;
 
             const session = currentSession;
-            const canTrade = session.status === 'in_progress';
+            // Permitir operar si está in_progress o target_hit (con advertencia)
+            // NO permitir si está stopped_loss o closed
+            const canTrade = session.status === 'in_progress' || session.status === 'target_hit';
+            const showTargetHitWarning = session.status === 'target_hit';
             const capital = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl);
             const dailyTarget = session.dailyTarget || (parseFloat(session.starting_capital) * parseFloat(currentPeriod.daily_target_pct));
             const maxLoss = session.maxDailyLoss || (parseFloat(session.starting_capital) * parseFloat(currentPeriod.max_daily_loss_pct));
@@ -1436,7 +1439,7 @@
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">Operaciones:</span>
-                        <span class="stat-value">${session.num_trades}</span>
+                        <span class="stat-value">${session.num_trades || 0}</span>
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">Estado:</span>
@@ -1449,6 +1452,15 @@
                     </div>
                     ` : ''}
                 </div>
+
+                ${showTargetHitWarning ? `
+                    <div class="card" style="background: #fff3cd; border-left: 4px solid #ffc107; margin: 20px 0;">
+                        <h3 style="color: #856404; margin-bottom: 10px;"><i class="fas fa-exclamation-triangle"></i> Advertencia</h3>
+                        <p style="color: #856404; margin: 0;">
+                            Ya se alcanzó la meta diaria (target_hit). Puedes continuar operando, pero ten en cuenta que estás operando por encima del objetivo establecido.
+                        </p>
+                    </div>
+                ` : ''}
 
                 ${canTrade ? `
                     <div class="form-group" style="margin: 20px 0;">
@@ -1647,13 +1659,14 @@
                         ...currentSession,
                         ...data.session,
                         daily_pnl: data.currentCapital - parseFloat(currentSession.starting_capital),
-                        num_trades: data.session.num_trades || currentSession.num_trades + 1,
+                        num_trades: data.session.num_trades, // Usar el valor del backend
                         status: data.session.status || currentSession.status,
                         nextStake: data.nextStake,
                         nextMartingaleStep: data.nextMartingaleStep,
                         currentCapital: data.currentCapital,
                         dailyTarget: data.dailyTarget,
-                        maxDailyLoss: data.maxDailyLoss
+                        maxDailyLoss: data.maxDailyLoss,
+                        isTargetHit: data.isTargetHit // Para mostrar advertencia
                     };
                     
                     // Limpiar selector

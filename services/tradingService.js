@@ -183,10 +183,15 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     throw new Error('Sesión no encontrada');
   }
 
-  // Verificar que la sesión esté activa
-  if (session.status !== 'in_progress') {
+  // Verificar que la sesión permita operar
+  // Permitir operar si está in_progress o target_hit (con advertencia)
+  // NO permitir si está stopped_loss o closed
+  if (session.status === 'stopped_loss' || session.status === 'closed') {
     throw new Error(`No se pueden registrar más operaciones. Estado de sesión: ${session.status}`);
   }
+  
+  // Si es target_hit, se permitirá pero se retornará una advertencia
+  const isTargetHit = session.status === 'target_hit';
 
   const period = session.period;
   const trades = session.trades || [];
@@ -244,8 +249,15 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     newStatus = 'stopped_loss';
   }
 
-  // Obtener número de trade
-  const tradeNumber = trades.length > 0 ? trades[0].trade_number + 1 : 1;
+  // Obtener número de trade (usar el máximo trade_number + 1, o contar todos los trades)
+  let tradeNumber;
+  if (trades.length > 0) {
+    // Obtener el máximo trade_number de todos los trades
+    const maxTradeNumber = Math.max(...trades.map(t => t.trade_number));
+    tradeNumber = maxTradeNumber + 1;
+  } else {
+    tradeNumber = 1;
+  }
 
   // Crear el trade
   const trade = await Trade.create({
@@ -273,10 +285,11 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
   }
 
   // Calcular el stake para la próxima operación
+  // Permitir calcular stake si está in_progress o target_hit (para seguir operando)
   let nextStake = 0;
   let nextMartingaleStep = 0;
   
-  if (newStatus === 'in_progress') {
+  if (newStatus === 'in_progress' || newStatus === 'target_hit') {
     const nextStakeCalc = calculateNextStake(
       currentCapital,
       parseFloat(period.risk_per_trade_pct),
@@ -300,7 +313,8 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     currentCapital,
     dailyTarget,
     maxDailyLoss,
-    canContinue: newStatus === 'in_progress',
+    canContinue: newStatus === 'in_progress' || newStatus === 'target_hit',
+    isTargetHit: newStatus === 'target_hit' && isTargetHit, // Advertencia si ya era target_hit
     nextStake,
     nextMartingaleStep
   };
