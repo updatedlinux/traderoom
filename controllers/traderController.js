@@ -45,10 +45,12 @@ const createPeriod = async (req, res) => {
       });
     }
 
+    // Asegurar que las fechas se guarden como DATEONLY sin conversión de zona horaria
+    // Las fechas vienen como YYYY-MM-DD del frontend, guardarlas directamente
     const period = await TradingPeriod.create({
       user_id: userId,
-      start_date,
-      end_date,
+      start_date: start_date.split('T')[0], // Asegurar formato YYYY-MM-DD
+      end_date: end_date.split('T')[0], // Asegurar formato YYYY-MM-DD
       initial_capital: parseFloat(initial_capital),
       current_capital: parseFloat(initial_capital),
       daily_target_pct: parseFloat(daily_target_pct),
@@ -147,8 +149,9 @@ const updatePeriod = async (req, res) => {
     }
 
     // Actualizar campos
-    if (start_date !== undefined) period.start_date = start_date;
-    if (end_date !== undefined) period.end_date = end_date;
+    // Asegurar que las fechas se guarden como DATEONLY sin conversión de zona horaria
+    if (start_date !== undefined) period.start_date = start_date.split('T')[0]; // Asegurar formato YYYY-MM-DD
+    if (end_date !== undefined) period.end_date = end_date.split('T')[0]; // Asegurar formato YYYY-MM-DD
     if (initial_capital !== undefined) {
       period.initial_capital = parseFloat(initial_capital);
       // Si se actualiza el capital inicial y no hay sesiones, actualizar también el current_capital

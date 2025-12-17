@@ -87,24 +87,29 @@ function calculateNextStake(currentCapital, riskPerTradePct, lastStake, lastMart
  */
 async function getOrCreateDailySession(periodId, date = null) {
   // Obtener fecha actual en GMT-5 (Bogotá)
+  let dateStr;
   if (!date) {
     // Obtener fecha actual en zona horaria de Bogotá (GMT-5)
     const now = new Date();
-    const bogotaDateStr = now.toLocaleString('en-US', { 
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-    // Convertir formato MM/DD/YYYY a YYYY-MM-DD
-    const [month, day, year] = bogotaDateStr.split('/');
-    date = new Date(`${year}-${month}-${day}`);
+    // Usar toLocaleDateString para obtener la fecha en la zona horaria de Bogotá
+    const bogotaDateStr = now.toLocaleDateString('en-CA', { 
+      timeZone: 'America/Bogota'
+    }); // 'en-CA' devuelve formato YYYY-MM-DD
+    dateStr = bogotaDateStr;
+  } else {
+    // Si se pasa una fecha, formatearla como YYYY-MM-DD
+    // Si es un string YYYY-MM-DD, usarlo directamente
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      dateStr = date;
+    } else {
+      // Si es un objeto Date, formatearlo
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      dateStr = `${year}-${month}-${day}`;
+    }
   }
-  // Formatear fecha como YYYY-MM-DD
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const dateStr = `${year}-${month}-${day}`;
   
   // Buscar sesión existente para hoy
   let session = await DailySession.findOne({

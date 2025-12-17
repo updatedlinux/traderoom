@@ -941,6 +941,24 @@
         let currentPeriod = null;
         let currentSession = null;
 
+        // Función para formatear fechas sin conversión de zona horaria
+        function formatDateForDisplay(dateString) {
+            if (!dateString) return 'N/A';
+            // Si la fecha viene como YYYY-MM-DD, parsearla directamente sin conversión de zona horaria
+            if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+                const [year, month, day] = dateString.split('T')[0].split('-');
+                return `${day}/${month}/${year}`;
+            }
+            // Si es un objeto Date o timestamp, usar toLocaleDateString con timezone
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-CO', { 
+                timeZone: 'America/Bogota',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        }
+
         // Inicialización
         window.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
@@ -1262,7 +1280,7 @@
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">Rango de Fechas:</span>
-                            <span class="stat-value">${new Date(period.start_date).toLocaleDateString()} - ${new Date(period.end_date).toLocaleDateString()}</span>
+                            <span class="stat-value">${formatDateForDisplay(period.start_date)} - ${formatDateForDisplay(period.end_date)}</span>
                         </div>
                         <div class="stat-row">
                             <span class="stat-label">Estado:</span>
@@ -1388,9 +1406,14 @@
 
                 const data = await response.json();
                 if (data.success) {
+                    // Calcular capital actual y nextStake si no viene del backend
+                    const sessionCapital = data.session.currentCapital || (parseFloat(data.session.starting_capital) + parseFloat(data.session.daily_pnl || 0));
+                    const calculatedNextStake = data.session.nextStake || (sessionCapital * parseFloat(currentPeriod.risk_per_trade_pct));
+                    
                     currentSession = {
                         ...data.session,
-                        nextStake: data.session.nextStake || (parseFloat(data.session.starting_capital) * parseFloat(currentPeriod.risk_per_trade_pct)),
+                        currentCapital: sessionCapital,
+                        nextStake: calculatedNextStake,
                         nextMartingaleStep: data.session.nextMartingaleStep || 0
                     };
                     renderCurrentSession();
@@ -1410,13 +1433,21 @@
             // NO permitir si está stopped_loss o closed
             const canTrade = session.status === 'in_progress' || session.status === 'target_hit';
             const showTargetHitWarning = session.status === 'target_hit';
-            const capital = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl);
+            // Usar currentCapital si está disponible, sino calcularlo
+            const capital = session.currentCapital || (parseFloat(session.starting_capital) + parseFloat(session.daily_pnl));
             const dailyTarget = session.dailyTarget || (parseFloat(session.starting_capital) * parseFloat(currentPeriod.daily_target_pct));
             const maxLoss = session.maxDailyLoss || (parseFloat(session.starting_capital) * parseFloat(currentPeriod.max_daily_loss_pct));
+            
+            // Calcular nextStake si no viene del backend, usando el capital actual (no el inicial)
+            // Esto asegura que el stake se recalcule basado en el capital actual, no el inicial
+            let calculatedNextStake = session.nextStake;
+            if (!calculatedNextStake || calculatedNextStake === 0) {
+                calculatedNextStake = capital * parseFloat(currentPeriod.risk_per_trade_pct);
+            }
 
             const html = `
                 <div class="card">
-                    <h3>Sesión del ${new Date(session.date).toLocaleDateString()}</h3>
+                    <h3>Sesión del ${formatDateForDisplay(session.date)}</h3>
                     <div class="stat-row">
                         <span class="stat-label">Capital Inicial:</span>
                         <span class="stat-value">$${parseFloat(session.starting_capital).toFixed(2)}</span>
@@ -1448,7 +1479,7 @@
                     ${canTrade ? `
                     <div class="stat-row" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; border: 2px solid #00568E;">
                         <span class="stat-label" style="font-size: 18px; font-weight: bold; color: #00568E;"><i class="fas fa-dollar-sign"></i> Monto de la Próxima Operación:</span>
-                        <span class="stat-value" style="font-size: 24px; font-weight: bold; color: #00568E;">$${(session.nextStake || (capital * parseFloat(currentPeriod.risk_per_trade_pct))).toFixed(2)}</span>
+                        <span class="stat-value" style="font-size: 24px; font-weight: bold; color: #00568E;">$${calculatedNextStake.toFixed(2)}</span>
                     </div>
                     ` : ''}
                 </div>
