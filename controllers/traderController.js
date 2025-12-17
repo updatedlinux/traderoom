@@ -268,8 +268,11 @@ const getSession = async (req, res) => {
     const currentCapital = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl);
 
     // Calcular stake para la próxima operación
+    // Los trades están ordenados por trade_number ASC, así que el último es el último elemento
     const trades = session.trades || [];
-    const lastTrade = trades.length > 0 ? trades[trades.length - 1] : null;
+    // Ordenar por trade_number para asegurar que el último sea el más reciente
+    const sortedTrades = [...trades].sort((a, b) => a.trade_number - b.trade_number);
+    const lastTrade = sortedTrades.length > 0 ? sortedTrades[sortedTrades.length - 1] : null;
     let nextStake = 0;
     let nextMartingaleStep = 0;
 

@@ -248,10 +248,23 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
   
   let newStatus = session.status;
   
+  // Verificar si estamos en martingala DESPUÉS de esta operación
+  // Si esta operación fue OTM, el siguiente paso de martingala sería martingaleStep
+  // Si esta operación fue ITM, salimos de martingala (martingaleStep = 0)
+  const willBeInMartingale = result === 'OTM' && martingaleStep > 0 && martingaleStep <= period.martingale_steps;
+  const canContinueMartingale = willBeInMartingale && martingaleStep < period.martingale_steps;
+  
   if (newDailyPnl >= dailyTarget) {
     newStatus = 'target_hit';
   } else if (newDailyPnl <= -maxDailyLoss) {
-    newStatus = 'stopped_loss';
+    // Solo activar stop loss si:
+    // 1. Realmente se alcanzó el límite de pérdida (-6%)
+    // 2. Y NO estamos en martingala con pasos disponibles
+    // Si estamos en martingala, permitir continuar hasta el último paso
+    if (!canContinueMartingale) {
+      newStatus = 'stopped_loss';
+    }
+    // Si estamos en martingala y aún hay pasos, mantener in_progress para permitir continuar
   }
 
   // Obtener número de trade (usar el máximo trade_number + 1, o contar todos los trades)
