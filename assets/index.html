@@ -51,7 +51,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #00568E 0%, #0066A3 100%);
+            background: linear-gradient(135deg, #010332 0%, #010332 100%);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -85,7 +85,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(135deg, #00568E 0%, #0066A3 100%);
+            background: linear-gradient(135deg, #010332 0%, #010332 100%);
             padding: 20px;
         }
 
@@ -99,7 +99,7 @@
         }
 
         .login-box h2 {
-            color: #00568E;
+            color: #010332;
             font-size: 28px;
             margin-bottom: 30px;
             text-align: center;
@@ -112,7 +112,7 @@
         .login-form-group label {
             display: block;
             margin-bottom: 8px;
-            color: #00568E;
+            color: #010332;
             font-weight: 600;
             font-size: 14px;
         }
@@ -128,12 +128,12 @@
 
         .login-form-group input:focus {
             outline: none;
-            border-color: #00568E;
+            border-color: #010332;
         }
 
         .login-btn {
             width: 100%;
-            background: #00568E;
+            background: #010332;
             color: white;
             padding: 15px;
             border: none;
@@ -149,7 +149,7 @@
         .login-btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 8px 25px rgba(0, 86, 142, 0.4);
-            background: #0066A3;
+            background: #010332;
         }
 
         .login-btn:disabled {
@@ -174,7 +174,7 @@
 
         /* Header */
         .header {
-            background: linear-gradient(135deg, #00568E 0%, #0066A3 100%);
+            background: linear-gradient(135deg, #010332 0%, #010332 100%);
             padding: 10px 40px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             display: flex;
@@ -236,7 +236,7 @@
 
         .logout-btn:hover {
             background: white;
-            color: #00568E;
+            color: #010332;
         }
 
         /* Sidebar Menu */
@@ -267,13 +267,13 @@
 
         .menu-item:hover {
             background: #f8f9fa;
-            color: #00568E;
+            color: #010332;
         }
 
         .menu-item.active {
             background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            color: #00568E;
-            border-left: 4px solid #00568E;
+            color: #010332;
+            border-left: 4px solid #010332;
         }
 
         .menu-item i {
@@ -323,7 +323,7 @@
         }
 
         .section-header h2 {
-            color: #00568E;
+            color: #010332;
             font-size: 28px;
             font-weight: 700;
         }
@@ -336,7 +336,7 @@
         .form-group label {
             display: block;
             margin-bottom: 8px;
-            color: #00568E;
+            color: #010332;
             font-weight: 600;
             font-size: 14px;
         }
@@ -354,7 +354,7 @@
         .form-group select:focus,
         .form-group input:focus {
             outline: none;
-            border-color: #00568E;
+            border-color: #010332;
         }
 
         .form-row {
@@ -378,7 +378,7 @@
         }
 
         .data-table th {
-            background: #00568E;
+            background: #010332;
             color: white;
             font-weight: 600;
         }
@@ -389,7 +389,7 @@
 
         /* Buttons */
         .btn {
-            background: #00568E;
+            background: #010332;
             color: white;
             padding: 12px 24px;
             border: none;
@@ -408,7 +408,7 @@
         .btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 8px 25px rgba(0, 86, 142, 0.4);
-            background: #0066A3;
+            background: #010332;
         }
 
         .btn-danger {
@@ -445,12 +445,12 @@
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             border-radius: 12px;
             padding: 20px;
-            border-left: 4px solid #00568E;
+            border-left: 4px solid #010332;
             margin-bottom: 20px;
         }
 
         .card h3 {
-            color: #00568E;
+            color: #010332;
             font-size: 20px;
             margin-bottom: 15px;
         }
@@ -578,7 +578,7 @@
         }
 
         .modal-header h2 {
-            color: #00568E;
+            color: #010332;
             font-size: 24px;
         }
 
@@ -591,7 +591,7 @@
         }
 
         .close:hover {
-            color: #00568E;
+            color: #010332;
         }
 
         /* Hidden content when not logged in */
@@ -958,6 +958,41 @@
         </div>
     </div>
 
+    <!-- Delete Period Confirmation Modal -->
+    <div id="deletePeriodModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación</h2>
+                <span class="close" onclick="closeModal('deletePeriod')">&times;</span>
+            </div>
+            <div style="padding: 20px 0;">
+                <p style="font-size: 16px; margin-bottom: 20px;">
+                    ¿Estás seguro de que deseas eliminar el periodo <strong id="deletePeriodName"></strong>?
+                </p>
+                <p style="color: #dc3545; font-weight: bold; margin-bottom: 20px;">
+                    <i class="fas fa-warning"></i> Esta acción eliminará permanentemente:
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 20px;">
+                    <li>El periodo completo</li>
+                    <li>Todas las sesiones diarias asociadas</li>
+                    <li>Todas las operaciones registradas</li>
+                </ul>
+                <p style="color: #dc3545; font-weight: bold;">
+                    Esta acción no se puede deshacer.
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeModal('deletePeriod')">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button class="btn btn-danger" onclick="confirmDeletePeriod()">
+                    <i class="fas fa-trash"></i> Eliminar Definitivamente
+                </button>
+            </div>
+            <div id="deletePeriodError" class="error-message" style="display: none; margin-top: 15px;"></div>
+        </div>
+    </div>
+
     <script>
         // Configuración
         const API_BASE = window.location.origin.includes('traderoom.soyjonnymelendez.net') 
@@ -1295,9 +1330,14 @@
                         <h3 style="margin: 0;">
                             Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''}
                         </h3>
-                        <button class="btn btn-small" onclick="event.stopPropagation(); openEditPeriodModal(${period.id})">
-                            <i class="fas fa-edit"></i> Editar
-                        </button>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-small" onclick="event.stopPropagation(); openEditPeriodModal(${period.id})">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="event.stopPropagation(); openDeletePeriodModal(${period.id}, '${period.nickname || `Periodo ${period.id}`}')">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        </div>
                     </div>
                     <div onclick="selectPeriod(${period.id})" style="cursor: pointer;">
                         <div class="stat-row">
@@ -1519,9 +1559,9 @@
                         <span class="status-badge ${session.status}">${session.status}</span>
                     </div>
                     ${canTrade ? `
-                    <div class="stat-row" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; border: 2px solid #00568E;">
-                        <span class="stat-label" style="font-size: 18px; font-weight: bold; color: #00568E;"><i class="fas fa-dollar-sign"></i> Monto de la Próxima Operación:</span>
-                        <span class="stat-value" style="font-size: 24px; font-weight: bold; color: #00568E;">$${calculatedNextStake.toFixed(2)}</span>
+                    <div class="stat-row" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; border: 2px solid #010332;">
+                        <span class="stat-label" style="font-size: 18px; font-weight: bold; color: #010332;"><i class="fas fa-dollar-sign"></i> Monto de la Próxima Operación:</span>
+                        <span class="stat-value" style="font-size: 24px; font-weight: bold; color: #010332;">$${calculatedNextStake.toFixed(2)}</span>
                     </div>
                     ` : ''}
                 </div>
@@ -2236,6 +2276,49 @@
         // Modal Functions
         function closeModal(modalName) {
             document.getElementById(modalName + 'Modal').style.display = 'none';
+        }
+
+        let periodToDelete = null;
+
+        function openDeletePeriodModal(periodId, periodName) {
+            periodToDelete = periodId;
+            document.getElementById('deletePeriodName').textContent = periodName;
+            document.getElementById('deletePeriodError').style.display = 'none';
+            document.getElementById('deletePeriodModal').style.display = 'block';
+        }
+
+        async function confirmDeletePeriod() {
+            if (!periodToDelete) return;
+
+            const errorDiv = document.getElementById('deletePeriodError');
+            errorDiv.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/periods/${periodToDelete}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    closeModal('deletePeriod');
+                    alert(`Periodo eliminado exitosamente.\nSe eliminaron ${data.deleted.sessions} sesiones y ${data.deleted.trades} operaciones.`);
+                    loadPeriods();
+                    // Si el periodo eliminado era el actual, limpiar la sesión actual
+                    if (currentPeriod && currentPeriod.id === periodToDelete) {
+                        currentPeriod = null;
+                        currentSession = null;
+                        showSection('periods');
+                    }
+                    periodToDelete = null;
+                } else {
+                    errorDiv.textContent = data.error || 'Error al eliminar periodo';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error de conexión';
+                errorDiv.style.display = 'block';
+            }
         }
 
         window.onclick = function(event) {

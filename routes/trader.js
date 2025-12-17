@@ -42,6 +42,7 @@ router.get('/periods', traderController.getPeriods);
 router.post('/periods', validateCreatePeriod, handleValidationErrors, traderController.createPeriod);
 router.get('/periods/:id', traderController.getPeriod);
 router.patch('/periods/:id', validateCreatePeriod, handleValidationErrors, traderController.updatePeriod);
+router.delete('/periods/:id', traderController.deletePeriod);
 router.post('/periods/:id/sessions', traderController.createSession);
 router.get('/sessions/:id', traderController.getSession);
 router.post('/sessions/:id/trades', validateRegisterTrade, handleValidationErrors, traderController.registerTrade);

@@ -525,11 +525,82 @@ const closeSession = async (req, res) => {
   }
 };
 
+const deletePeriod = async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { id } = req.params;
+
+    // Verificar que el periodo pertenece al usuario
+    const period = await TradingPeriod.findOne({
+      where: {
+        id,
+        user_id: userId
+      },
+      include: [{
+        model: DailySession,
+        as: 'sessions',
+        include: [{
+          model: Trade,
+          as: 'trades'
+        }]
+      }]
+    });
+
+    if (!period) {
+      return res.status(404).json({
+        success: false,
+        error: 'Periodo no encontrado'
+      });
+    }
+
+    // Eliminar en cascada: primero las operaciones, luego las sesiones, finalmente el periodo
+    const sessions = period.sessions || [];
+    let totalTradesDeleted = 0;
+    let totalSessionsDeleted = sessions.length;
+
+    for (const session of sessions) {
+      const trades = session.trades || [];
+      // Eliminar todas las operaciones de la sesión
+      await Trade.destroy({
+        where: { session_id: session.id }
+      });
+      totalTradesDeleted += trades.length;
+    }
+
+    // Eliminar todas las sesiones del periodo
+    await DailySession.destroy({
+      where: { period_id: id }
+    });
+
+    // Eliminar el periodo
+    await period.destroy();
+
+    console.log(`Periodo ${id} eliminado: ${totalSessionsDeleted} sesiones y ${totalTradesDeleted} operaciones eliminadas`);
+
+    res.json({
+      success: true,
+      message: `Periodo eliminado exitosamente. Se eliminaron ${totalSessionsDeleted} sesiones y ${totalTradesDeleted} operaciones.`,
+      deleted: {
+        period: 1,
+        sessions: totalSessionsDeleted,
+        trades: totalTradesDeleted
+      }
+    });
+  } catch (error) {
+    console.error('Error al eliminar periodo:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al eliminar periodo'
+    });
+  }
+};
+
 module.exports = {
   getPeriods,
   createPeriod,
   getPeriod,
   updatePeriod,
+  deletePeriod,
   createSession,
   getSession,
   registerTrade,
