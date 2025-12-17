@@ -175,7 +175,7 @@
         /* Header */
         .header {
             background: linear-gradient(135deg, #00568E 0%, #0066A3 100%);
-            padding: 20px 40px;
+            padding: 15px 40px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: space-between;
@@ -186,13 +186,20 @@
             left: 0;
             right: 0;
             z-index: 999;
-            height: 100px;
+            min-height: 100px;
+        }
+
+        .header-logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
         }
 
         .logo {
-            width: 300px;
+            width: 400px;
             height: auto;
-            max-height: 80px;
+            max-height: 90px;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
             object-fit: contain;
         }
@@ -686,7 +693,9 @@
     <div id="mainContent" class="content-hidden">
         <!-- Header -->
         <div class="header">
-            <img src="logo-traderoom.png" alt="TradeRoom Logo" class="logo">
+            <div class="header-logo-container">
+                <img src="logo-traderoom.png" alt="TradeRoom Logo" class="logo">
+            </div>
             <div class="header-info">
                 <div>
                     <h1>TradeRoom</h1>
@@ -855,14 +864,15 @@
         </div>
     </div>
 
-    <!-- Create Period Modal (Trader) -->
+    <!-- Create/Edit Period Modal (Trader) -->
     <div id="createPeriodModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Crear Periodo de Trading</h2>
+                <h2 id="periodModalTitle">Crear Periodo de Trading</h2>
                 <span class="close" onclick="closeModal('createPeriod')">&times;</span>
             </div>
             <form id="createPeriodForm" onsubmit="handleCreatePeriod(event)">
+                <input type="hidden" id="editPeriodId">
                 <div class="form-row">
                     <div class="form-group">
                         <label>Fecha de Inicio</label>
@@ -1222,23 +1232,30 @@
             }
 
             const html = periods.map(period => `
-                <div class="card" onclick="selectPeriod(${period.id})" style="cursor: pointer;">
-                    <h3>Periodo ${period.id}</h3>
-                    <div class="stat-row">
-                        <span class="stat-label">Capital Inicial:</span>
-                        <span class="stat-value">$${parseFloat(period.initial_capital).toFixed(2)}</span>
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0;">Periodo ${period.id}</h3>
+                        <button class="btn btn-small" onclick="event.stopPropagation(); openEditPeriodModal(${period.id})">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
                     </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Capital Actual:</span>
-                        <span class="stat-value">$${parseFloat(period.current_capital).toFixed(2)}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Rango de Fechas:</span>
-                        <span class="stat-value">${new Date(period.start_date).toLocaleDateString()} - ${new Date(period.end_date).toLocaleDateString()}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Estado:</span>
-                        <span class="status-badge ${period.status}">${period.status}</span>
+                    <div onclick="selectPeriod(${period.id})" style="cursor: pointer;">
+                        <div class="stat-row">
+                            <span class="stat-label">Capital Inicial:</span>
+                            <span class="stat-value">$${parseFloat(period.initial_capital).toFixed(2)}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Capital Actual:</span>
+                            <span class="stat-value">$${parseFloat(period.current_capital).toFixed(2)}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Rango de Fechas:</span>
+                            <span class="stat-value">${new Date(period.start_date).toLocaleDateString()} - ${new Date(period.end_date).toLocaleDateString()}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Estado:</span>
+                            <span class="status-badge ${period.status}">${period.status}</span>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -1260,19 +1277,61 @@
         }
 
         function openCreatePeriodModal() {
-            document.getElementById('createPeriodModal').style.display = 'block';
+            document.getElementById('periodModalTitle').textContent = 'Crear Periodo de Trading';
+            document.getElementById('createPeriodForm').querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-save"></i> Crear Periodo';
+            document.getElementById('editPeriodId').value = '';
+            document.getElementById('createPeriodForm').reset();
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('periodStartDate').value = today;
             document.getElementById('periodEndDate').value = today;
+            document.getElementById('periodDailyTarget').value = 15;
+            document.getElementById('periodProfit').value = 80;
+            document.getElementById('periodRisk').value = 5;
+            document.getElementById('periodMartingale').value = 3;
+            document.getElementById('periodMaxLoss').value = 6;
+            document.getElementById('createPeriodError').style.display = 'none';
+            document.getElementById('createPeriodModal').style.display = 'block';
+        }
+
+        async function openEditPeriodModal(periodId) {
+            try {
+                const response = await fetch(`${API_BASE}/periods/${periodId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    const period = data.period;
+                    document.getElementById('periodModalTitle').textContent = 'Editar Periodo de Trading';
+                    document.getElementById('createPeriodForm').querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+                    document.getElementById('editPeriodId').value = period.id;
+                    document.getElementById('periodStartDate').value = period.start_date;
+                    document.getElementById('periodEndDate').value = period.end_date;
+                    document.getElementById('periodInitialCapital').value = parseFloat(period.initial_capital);
+                    document.getElementById('periodDailyTarget').value = parseFloat(period.daily_target_pct) * 100;
+                    document.getElementById('periodProfit').value = parseFloat(period.profit_pct) * 100;
+                    document.getElementById('periodRisk').value = parseFloat(period.risk_per_trade_pct) * 100;
+                    document.getElementById('periodMartingale').value = period.martingale_steps;
+                    document.getElementById('periodMaxLoss').value = parseFloat(period.max_daily_loss_pct) * 100;
+                    document.getElementById('createPeriodError').style.display = 'none';
+                    document.getElementById('createPeriodModal').style.display = 'block';
+                } else {
+                    alert('Error al cargar el periodo');
+                }
+            } catch (error) {
+                alert('Error de conexión');
+            }
         }
 
         async function handleCreatePeriod(event) {
             event.preventDefault();
             const errorDiv = document.getElementById('createPeriodError');
+            const periodId = document.getElementById('editPeriodId').value;
+            const isEdit = periodId !== '';
             
             try {
-                const response = await fetch(`${API_BASE}/periods`, {
-                    method: 'POST',
+                const url = isEdit ? `${API_BASE}/periods/${periodId}` : `${API_BASE}/periods`;
+                const method = isEdit ? 'PATCH' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify({
@@ -1292,7 +1351,7 @@
                     closeModal('createPeriod');
                     loadPeriods();
                 } else {
-                    errorDiv.textContent = data.error || 'Error al crear periodo';
+                    errorDiv.textContent = data.error || (isEdit ? 'Error al actualizar periodo' : 'Error al crear periodo');
                     errorDiv.style.display = 'block';
                 }
             } catch (error) {

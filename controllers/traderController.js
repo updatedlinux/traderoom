@@ -114,6 +114,70 @@ const getPeriod = async (req, res) => {
   }
 };
 
+const updatePeriod = async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { id } = req.params;
+    const {
+      start_date,
+      end_date,
+      initial_capital,
+      daily_target_pct = 0.15,
+      profit_pct = 0.80,
+      risk_per_trade_pct = 0.05,
+      martingale_steps = 3,
+      max_daily_loss_pct = 0.06,
+      status
+    } = req.body;
+
+    // Verificar que el periodo pertenece al usuario
+    const period = await TradingPeriod.findOne({
+      where: {
+        id,
+        user_id: userId
+      }
+    });
+
+    if (!period) {
+      return res.status(404).json({
+        success: false,
+        error: 'Periodo no encontrado'
+      });
+    }
+
+    // Actualizar campos
+    if (start_date !== undefined) period.start_date = start_date;
+    if (end_date !== undefined) period.end_date = end_date;
+    if (initial_capital !== undefined) {
+      period.initial_capital = parseFloat(initial_capital);
+      // Si se actualiza el capital inicial y no hay sesiones, actualizar también el current_capital
+      const sessionCount = await DailySession.count({ where: { period_id: id } });
+      if (sessionCount === 0) {
+        period.current_capital = parseFloat(initial_capital);
+      }
+    }
+    if (daily_target_pct !== undefined) period.daily_target_pct = parseFloat(daily_target_pct);
+    if (profit_pct !== undefined) period.profit_pct = parseFloat(profit_pct);
+    if (risk_per_trade_pct !== undefined) period.risk_per_trade_pct = parseFloat(risk_per_trade_pct);
+    if (martingale_steps !== undefined) period.martingale_steps = parseInt(martingale_steps);
+    if (max_daily_loss_pct !== undefined) period.max_daily_loss_pct = parseFloat(max_daily_loss_pct);
+    if (status !== undefined) period.status = status;
+
+    await period.save();
+
+    res.json({
+      success: true,
+      period
+    });
+  } catch (error) {
+    console.error('Error al actualizar periodo:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al actualizar periodo'
+    });
+  }
+};
+
 const createSession = async (req, res) => {
   try {
     const userId = req.session.userId;
@@ -315,6 +379,7 @@ module.exports = {
   getPeriods,
   createPeriod,
   getPeriod,
+  updatePeriod,
   createSession,
   getSession,
   registerTrade,
