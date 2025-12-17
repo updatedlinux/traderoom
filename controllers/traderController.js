@@ -88,6 +88,7 @@ const getPeriod = async (req, res) => {
         include: [{
           model: Trade,
           as: 'trades',
+          attributes: { exclude: [] }, // Incluir todos los atributos disponibles
           order: [['trade_number', 'ASC']]
         }],
         order: [['date', 'DESC']]
