@@ -163,6 +163,11 @@ const updatePeriod = async (req, res) => {
         period.current_capital = parseFloat(initial_capital);
       }
     }
+    if (nickname !== undefined) {
+      const trimmedNickname = nickname ? nickname.trim() : null;
+      period.nickname = trimmedNickname === '' ? null : trimmedNickname;
+      console.log('DEBUG updatePeriod - nickname recibido:', nickname, '-> procesado:', period.nickname);
+    }
     if (daily_target_pct !== undefined) period.daily_target_pct = parseFloat(daily_target_pct);
     if (profit_pct !== undefined) period.profit_pct = parseFloat(profit_pct);
     if (risk_per_trade_pct !== undefined) period.risk_per_trade_pct = parseFloat(risk_per_trade_pct);
@@ -171,6 +176,12 @@ const updatePeriod = async (req, res) => {
     if (status !== undefined) period.status = status;
 
     await period.save();
+    
+    console.log('DEBUG updatePeriod - Periodo guardado:', {
+      id: period.id,
+      nickname: period.nickname,
+      nicknameType: typeof period.nickname
+    });
 
     res.json({
       success: true,
