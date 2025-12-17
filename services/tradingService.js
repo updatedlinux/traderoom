@@ -224,7 +224,9 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
   const trades = session.trades || [];
   
   // Obtener el último trade para calcular martingala
-  const lastTrade = trades.length > 0 ? trades[0] : null;
+  // IMPORTANTE: Ordenar por trade_number ASC para obtener el último trade correctamente
+  const sortedTrades = [...trades].sort((a, b) => a.trade_number - b.trade_number);
+  const lastTrade = sortedTrades.length > 0 ? sortedTrades[sortedTrades.length - 1] : null;
   
   // Calcular capital actual de la sesión
   let currentCapital = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl);
@@ -246,9 +248,11 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     martingaleStep = stakeCalc.martingaleStep;
     
     console.log('DEBUG registerTrade - Cálculo de stake para nueva operación:', {
+      lastTradeNumber: lastTrade.trade_number,
       lastTradeResult: lastTrade.result,
       lastTradeMartingaleStep: lastTrade.martingale_step,
       lastTradeStake: lastTrade.stake,
+      currentCapital,
       calculatedStake: stake,
       calculatedMartingaleStep: martingaleStep
     });
@@ -319,17 +323,40 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     tradeNumber = 1;
   }
 
+  // Validar que el stake calculado sea el correcto antes de guardar
+  console.log('DEBUG registerTrade - Validación antes de guardar trade:', {
+    tradeNumber,
+    stake,
+    martingaleStep,
+    result,
+    currentCapital,
+    lastTradeInfo: lastTrade ? {
+      number: lastTrade.trade_number,
+      result: lastTrade.result,
+      stake: lastTrade.stake,
+      martingaleStep: lastTrade.martingale_step
+    } : 'No hay trade anterior'
+  });
+
   // Crear el trade
   const trade = await Trade.create({
     session_id: sessionId,
     trade_number: tradeNumber,
-    stake: stake,
+    stake: stake, // Asegurar que se use el stake calculado, no el anterior
     result: result,
     pnl: pnl,
     capital_after: currentCapital,
-    martingale_step: martingaleStep,
+    martingale_step: martingaleStep, // Asegurar que se use el martingaleStep calculado
     currency_pair: currencyPair.trim().toUpperCase(),
     payout_real: payoutReal
+  });
+  
+  console.log('DEBUG registerTrade - Trade guardado:', {
+    id: trade.id,
+    trade_number: trade.trade_number,
+    stake: trade.stake,
+    martingale_step: trade.martingale_step,
+    result: trade.result
   });
 
   // Actualizar sesión
