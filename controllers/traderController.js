@@ -211,16 +211,61 @@ const createSession = async (req, res) => {
 
     const session = await tradingService.getOrCreateDailySession(periodId);
 
+    // Obtener trades de la sesión para calcular nextStake
+    const { Trade } = require('../models');
+    const trades = await Trade.findAll({
+      where: { session_id: session.id },
+      order: [['trade_number', 'ASC']]
+    });
+
     // Calcular valores para la respuesta
     const dailyTarget = parseFloat(session.starting_capital) * parseFloat(period.daily_target_pct);
     const maxDailyLoss = parseFloat(session.starting_capital) * parseFloat(period.max_daily_loss_pct);
+    const currentCapital = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl);
+
+    // Calcular stake para la próxima operación
+    const sortedTrades = [...trades].sort((a, b) => a.trade_number - b.trade_number);
+    const lastTrade = sortedTrades.length > 0 ? sortedTrades[sortedTrades.length - 1] : null;
+    let nextStake = 0;
+    let nextMartingaleStep = 0;
+
+    // Permitir calcular stake si está in_progress o target_hit
+    if (session.status === 'in_progress' || session.status === 'target_hit') {
+      if (lastTrade) {
+        try {
+          const tradingService = require('../services/tradingService');
+          const stakeCalc = tradingService.calculateNextStake(
+            currentCapital,
+            parseFloat(period.risk_per_trade_pct),
+            parseFloat(lastTrade.stake),
+            lastTrade.martingale_step,
+            period.martingale_steps,
+            lastTrade.result
+          );
+          nextStake = stakeCalc.stake;
+          nextMartingaleStep = stakeCalc.martingaleStep;
+        } catch (error) {
+          console.error('Error calculando nextStake en createSession:', error);
+          // Fallback: usar stake base
+          nextStake = currentCapital * parseFloat(period.risk_per_trade_pct);
+          nextMartingaleStep = 0;
+        }
+      } else {
+        // Primera operación: usar stake base
+        nextStake = currentCapital * parseFloat(period.risk_per_trade_pct);
+        nextMartingaleStep = 0;
+      }
+    }
 
     res.json({
       success: true,
       session: {
         ...session.toJSON(),
+        currentCapital,
         dailyTarget,
         maxDailyLoss,
+        nextStake,
+        nextMartingaleStep,
         period: {
           profit_pct: period.profit_pct,
           risk_per_trade_pct: period.risk_per_trade_pct,
