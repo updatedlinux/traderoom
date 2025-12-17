@@ -7,37 +7,37 @@ async function addPayoutRealColumn() {
     await sequelize.authenticate();
     console.log('Conexión establecida.');
 
-    // Verificar si la columna ya existe
-    const [results] = await sequelize.query(`
-      SELECT COLUMN_NAME 
-      FROM INFORMATION_SCHEMA.COLUMNS 
-      WHERE TABLE_SCHEMA = DATABASE() 
-      AND TABLE_NAME = 'trades' 
-      AND COLUMN_NAME = 'payout_real'
-    `);
-
-    if (results.length > 0) {
-      console.log('La columna payout_real ya existe en la tabla trades.');
-    } else {
-      console.log('Agregando columna payout_real a la tabla trades...');
+    console.log('Agregando columna payout_real a la tabla trades...');
+    
+    // Intentar agregar la columna directamente
+    // Si ya existe, MariaDB lanzará un error que capturaremos
+    try {
       await sequelize.query(`
         ALTER TABLE trades 
         ADD COLUMN payout_real DECIMAL(5,4) NULL 
         COMMENT 'Payout real de la operación (ej: 0.85 = 85%, 0.99 = 99%)'
-      `);
-      console.log('Columna payout_real agregada exitosamente.');
+      `, { raw: true });
+      console.log('✅ Columna payout_real agregada exitosamente.');
+    } catch (addError) {
+      // Si el error es que la columna ya existe, está bien
+      if (addError.original && addError.original.code === 'ER_DUP_FIELDNAME') {
+        console.log('ℹ️  La columna payout_real ya existe en la tabla trades.');
+      } else {
+        // Si es otro error, lo relanzamos
+        throw addError;
+      }
     }
 
-    console.log('\n✅ Sincronización completada exitosamente.\n');
+    console.log('\n✅ Proceso completado exitosamente.\n');
     
     await sequelize.close();
     process.exit(0);
   } catch (error) {
-    console.error('\n❌ Error durante la sincronización:', error.message);
+    console.error('\n❌ Error durante la operación:', error.message);
     if (error.original) {
-      console.error('Detalle:', error.original.message);
+      console.error('Detalle SQL:', error.original.message);
+      console.error('Código SQL:', error.original.code);
     }
-    console.error('\nStack completo:', error.stack);
     process.exit(1);
   }
 }
