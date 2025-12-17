@@ -324,6 +324,17 @@ const getSession = async (req, res) => {
     // Contar el número real de trades
     const actualTradeCount = trades.length;
 
+    console.log('DEBUG getSession - Enviando respuesta:', {
+      nextStake,
+      nextMartingaleStep,
+      currentCapital,
+      lastTrade: lastTrade ? {
+        stake: lastTrade.stake,
+        result: lastTrade.result,
+        martingale_step: lastTrade.martingale_step
+      } : null
+    });
+    
     res.json({
       success: true,
       session: {

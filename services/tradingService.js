@@ -259,9 +259,10 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     console.log('DEBUG registerTrade - Primera operación, stake base:', stake);
   }
 
-  // El martingaleStep calculado es el paso que se usará para ESTA operación
-  // Después de ejecutar esta operación, si es OTM, el siguiente paso sería martingaleStep + 1
-  // Pero para guardar en el trade, usamos el martingaleStep calculado (el paso de esta operación)
+  // El martingaleStep calculado es el paso que se usó para calcular el stake de ESTA operación
+  // Este es el paso correcto para guardar en el trade
+  // Si la última operación fue OTM con paso 0, esta operación se ejecuta con paso 1
+  // Si esta operación es OTM, la próxima será con paso martingaleStep + 1
   
   console.log('DEBUG registerTrade - Martingale step para guardar en trade:', {
     result,
@@ -349,16 +350,26 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
   let nextMartingaleStep = 0;
   
   if (newStatus === 'in_progress' || newStatus === 'target_hit') {
+    // Para calcular el próximo stake, usamos el trade que acabamos de crear
+    // El stake y martingaleStep de este trade, y su resultado
     const nextStakeCalc = calculateNextStake(
       currentCapital,
       parseFloat(period.risk_per_trade_pct),
-      stake,
-      martingaleStep,
+      stake, // El stake de la operación que acabamos de registrar
+      martingaleStep, // El martingaleStep de la operación que acabamos de registrar
       period.martingale_steps,
-      result
+      result // El resultado de la operación que acabamos de registrar
     );
     nextStake = nextStakeCalc.stake;
     nextMartingaleStep = nextStakeCalc.martingaleStep;
+    
+    console.log('DEBUG registerTrade - Cálculo de nextStake después de registrar trade:', {
+      tradeStake: stake,
+      tradeMartingaleStep: martingaleStep,
+      tradeResult: result,
+      nextStake,
+      nextMartingaleStep
+    });
   }
 
   return {

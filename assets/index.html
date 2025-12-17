@@ -1408,7 +1408,17 @@
                 if (data.success) {
                     // Calcular capital actual y nextStake si no viene del backend
                     const sessionCapital = data.session.currentCapital || (parseFloat(data.session.starting_capital) + parseFloat(data.session.daily_pnl || 0));
-                    const calculatedNextStake = data.session.nextStake || (sessionCapital * parseFloat(currentPeriod.risk_per_trade_pct));
+                    
+                    // Usar el nextStake del backend si está disponible, sino calcularlo
+                    // IMPORTANTE: El backend calcula correctamente el nextStake considerando martingala
+                    let calculatedNextStake = data.session.nextStake;
+                    if (!calculatedNextStake || calculatedNextStake === 0) {
+                        // Fallback: calcular stake base (solo si el backend no envió nextStake)
+                        calculatedNextStake = sessionCapital * parseFloat(currentPeriod.risk_per_trade_pct);
+                        console.warn('Frontend: nextStake no vino del backend, usando cálculo fallback:', calculatedNextStake);
+                    } else {
+                        console.log('Frontend: Usando nextStake del backend:', calculatedNextStake);
+                    }
                     
                     currentSession = {
                         ...data.session,
@@ -1695,20 +1705,33 @@
 
                 const data = await response.json();
                 if (data.success) {
+                    console.log('Frontend registerTrade - Datos recibidos del backend:', {
+                        nextStake: data.nextStake,
+                        nextMartingaleStep: data.nextMartingaleStep,
+                        currentCapital: data.currentCapital,
+                        sessionStatus: data.session.status
+                    });
+                    
                     // Actualizar currentSession con los datos del backend
+                    // IMPORTANTE: Usar el nextStake del backend que ya incluye el cálculo de martingala
                     currentSession = {
                         ...currentSession,
                         ...data.session,
                         daily_pnl: data.currentCapital - parseFloat(currentSession.starting_capital),
                         num_trades: data.session.num_trades, // Usar el valor del backend
                         status: data.session.status || currentSession.status,
-                        nextStake: data.nextStake,
+                        nextStake: data.nextStake, // Usar el nextStake calculado por el backend
                         nextMartingaleStep: data.nextMartingaleStep,
                         currentCapital: data.currentCapital,
                         dailyTarget: data.dailyTarget,
                         maxDailyLoss: data.maxDailyLoss,
                         isTargetHit: data.isTargetHit // Para mostrar advertencia
                     };
+                    
+                    console.log('Frontend registerTrade - currentSession actualizado:', {
+                        nextStake: currentSession.nextStake,
+                        currentCapital: currentSession.currentCapital
+                    });
                     
                     // Limpiar selector
                     if (select) select.value = '';
@@ -1717,8 +1740,9 @@
                         toggleCustomPair();
                     }
                     
-                    // Recargar la sesión completa para obtener todos los datos actualizados
-                    await loadCurrentSession();
+                    // Renderizar directamente con los datos actualizados del backend
+                    // No recargar desde el servidor para evitar recalcular nextStake incorrectamente
+                    renderCurrentSession();
                 } else {
                     alert(data.error || 'Error al registrar operación');
                 }
