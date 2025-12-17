@@ -1,6 +1,16 @@
 // Middleware de autenticación
 const requireAuth = (req, res, next) => {
+  console.log('DEBUG requireAuth - Session check:', {
+    hasSession: !!req.session,
+    sessionId: req.session?.id,
+    userId: req.session?.userId,
+    username: req.session?.username,
+    role: req.session?.role,
+    cookies: req.headers.cookie
+  });
+  
   if (!req.session || !req.session.userId) {
+    console.log('DEBUG requireAuth - No autenticado');
     return res.status(401).json({ 
       success: false, 
       error: 'No autenticado. Por favor inicia sesión.' 

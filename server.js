@@ -17,6 +17,9 @@ const statisticsRoutes = require('./routes/statistics');
 
 const app = express();
 
+// Trust proxy - Necesario cuando hay SSL offloading (Nginx Proxy Manager)
+app.set('trust proxy', 1);
+
 // Configuración de sesión
 app.use(session({
   secret: process.env.SESSION_SECRET || 'traderoom-secret-key-change-in-production',
@@ -24,12 +27,13 @@ app.use(session({
   saveUninitialized: false,
   name: 'traderoom.sid', // Nombre de la cookie
   cookie: {
-    secure: true, // HTTPS en producción
+    secure: true, // Siempre true porque estamos detrás de proxy HTTPS
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 horas
-    sameSite: 'none', // Permitir cookies cross-site (necesario para subdominios diferentes)
-    domain: '.soyjonnymelendez.net' // Permitir compartir cookie entre subdominios
-  }
+    sameSite: 'none', // Necesario para cross-site (subdominios diferentes)
+    domain: '.soyjonnymelendez.net' // Compartir cookie entre subdominios
+  },
+  proxy: true // Confiar en el proxy
 }));
 
 // Middlewares - CORS completamente abierto
