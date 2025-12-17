@@ -794,8 +794,16 @@
                             <i class="fas fa-sync"></i> Actualizar
                         </button>
                     </div>
+                    <div style="margin-bottom: 20px;">
+                        <div class="form-group">
+                            <label><i class="fas fa-calendar-alt"></i> Seleccionar Periodo</label>
+                            <select id="periodSelector" onchange="onPeriodSelectorChange()" style="width: 100%; max-width: 400px;">
+                                <option value="">-- Selecciona un periodo --</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="currentSessionContent">
-                        <p>Selecciona un periodo y crea una sesión para hoy.</p>
+                        <p>Selecciona un periodo para ver o crear la sesión de hoy.</p>
                     </div>
                 </div>
             </div>
@@ -1160,7 +1168,13 @@
 
             if (sectionName === 'users') loadUsers();
             else if (sectionName === 'periods') loadPeriods();
-            else if (sectionName === 'currentSession') loadCurrentSession();
+            else if (sectionName === 'currentSession') {
+                loadPeriodsForSelector();
+                if (currentPeriod) {
+                    // Si hay un periodo seleccionado, cargar su sesión
+                    loadCurrentSession();
+                }
+            }
             else if (sectionName === 'statistics') loadStatistics();
             else if (sectionName === 'adminStatistics') loadAdminStatistics();
         }
@@ -1368,11 +1382,76 @@
                 const data = await response.json();
                 if (data.success) {
                     currentPeriod = data.period;
+                    // Actualizar el selector si estamos en la sección de sesión actual
+                    const selector = document.getElementById('periodSelector');
+                    if (selector) {
+                        selector.value = periodId;
+                    }
                     showSection('currentSession');
                     loadCurrentSession();
                 }
             } catch (error) {
                 alert('Error al cargar el periodo');
+            }
+        }
+
+        async function loadPeriodsForSelector() {
+            try {
+                const response = await fetch(`${API_BASE}/periods`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    const selector = document.getElementById('periodSelector');
+                    if (selector) {
+                        // Guardar el valor actual antes de actualizar
+                        const currentValue = selector.value;
+                        
+                        // Limpiar opciones existentes (excepto la primera)
+                        selector.innerHTML = '<option value="">-- Selecciona un periodo --</option>';
+                        
+                        // Agregar periodos
+                        data.periods.forEach(period => {
+                            const option = document.createElement('option');
+                            option.value = period.id;
+                            option.textContent = `Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''} (${formatDateForDisplay(period.start_date)} - ${formatDateForDisplay(period.end_date)})`;
+                            selector.appendChild(option);
+                        });
+                        
+                        // Restaurar el valor si existe y el periodo sigue disponible
+                        if (currentValue && data.periods.find(p => p.id == currentValue)) {
+                            selector.value = currentValue;
+                        } else if (currentPeriod && data.periods.find(p => p.id == currentPeriod.id)) {
+                            selector.value = currentPeriod.id;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error al cargar periodos para el selector:', error);
+            }
+        }
+
+        async function onPeriodSelectorChange() {
+            const selector = document.getElementById('periodSelector');
+            const periodId = selector ? selector.value : null;
+            
+            if (!periodId || periodId === '') {
+                currentPeriod = null;
+                currentSession = null;
+                document.getElementById('currentSessionContent').innerHTML = '<p>Selecciona un periodo para ver o crear la sesión de hoy.</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/periods/${periodId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    currentPeriod = data.period;
+                    loadCurrentSession();
+                } else {
+                    alert('Error al cargar el periodo');
+                }
+            } catch (error) {
+                console.error('Error al cargar el periodo:', error);
+                alert('Error de conexión');
             }
         }
 
@@ -1452,6 +1531,10 @@
                 if (data.success) {
                     closeModal('createPeriod');
                     loadPeriods();
+                    // Actualizar el selector si estamos en la sección de sesión actual
+                    if (document.getElementById('currentSessionSection').classList.contains('active')) {
+                        loadPeriodsForSelector();
+                    }
                 } else {
                     errorDiv.textContent = data.error || (isEdit ? 'Error al actualizar periodo' : 'Error al crear periodo');
                     errorDiv.style.display = 'block';
@@ -1464,7 +1547,7 @@
 
         async function loadCurrentSession() {
             if (!currentPeriod) {
-                document.getElementById('currentSessionContent').innerHTML = '<p>Selecciona un periodo primero.</p>';
+                document.getElementById('currentSessionContent').innerHTML = '<p>Selecciona un periodo del selector para ver o crear la sesión de hoy.</p>';
                 return;
             }
 
@@ -2304,11 +2387,17 @@
                     closeModal('deletePeriod');
                     alert(`Periodo eliminado exitosamente.\nSe eliminaron ${data.deleted.sessions} sesiones y ${data.deleted.trades} operaciones.`);
                     loadPeriods();
+                    // Actualizar el selector si estamos en la sección de sesión actual
+                    if (document.getElementById('currentSessionSection').classList.contains('active')) {
+                        loadPeriodsForSelector();
+                    }
                     // Si el periodo eliminado era el actual, limpiar la sesión actual
                     if (currentPeriod && currentPeriod.id === periodToDelete) {
                         currentPeriod = null;
                         currentSession = null;
-                        showSection('periods');
+                        const selector = document.getElementById('periodSelector');
+                        if (selector) selector.value = '';
+                        document.getElementById('currentSessionContent').innerHTML = '<p>Selecciona un periodo para ver o crear la sesión de hoy.</p>';
                     }
                     periodToDelete = null;
                 } else {
