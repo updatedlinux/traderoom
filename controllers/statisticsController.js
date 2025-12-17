@@ -467,6 +467,9 @@ const generateSessionExcel = async (req, res) => {
  */
 const getAdminStatistics = async (req, res) => {
   try {
+    // Debug: Verificar rol del usuario
+    console.log('DEBUG getAdminStatistics - User ID:', req.session.userId, 'Role:', req.session.role);
+    
     // Obtener todos los usuarios traders
     const traders = await User.findAll({
       where: { role: 'trader' },

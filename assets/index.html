@@ -1927,14 +1927,41 @@
                 const response = await fetch(`${API_BASE}/statistics/admin`, { credentials: 'include' });
                 const data = await response.json();
                 
+                if (response.status === 403 || (data && !data.success && data.error && data.error.includes('permisos'))) {
+                    document.getElementById('adminStatisticsContent').innerHTML = `
+                        <div class="error-message" style="padding: 20px; text-align: center;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ff6b6b; margin-bottom: 15px;"></i> 
+                            <h3>Acceso Denegado</h3>
+                            <p style="margin-top: 10px;">No tienes permisos para acceder a este recurso.</p>
+                            <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                                Asegúrate de estar autenticado como administrador.<br>
+                                Rol actual: <strong>${currentUser ? currentUser.role : 'No disponible'}</strong>
+                            </p>
+                            <button class="btn" onclick="location.reload()" style="margin-top: 20px;">
+                                <i class="fas fa-sync-alt"></i> Recargar Página
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                
                 if (data.success) {
                     renderAdminStatistics(data);
                 } else {
-                    document.getElementById('adminStatisticsContent').innerHTML = `<p class="error-message">${data.error || 'Error al cargar estadísticas'}</p>`;
+                    document.getElementById('adminStatisticsContent').innerHTML = `
+                        <div class="error-message" style="padding: 20px;">
+                            <p><strong>Error:</strong> ${data.error || 'Error al cargar estadísticas'}</p>
+                        </div>
+                    `;
                 }
             } catch (error) {
                 console.error('Error al cargar estadísticas de admin:', error);
-                document.getElementById('adminStatisticsContent').innerHTML = '<p class="error-message">Error al cargar estadísticas</p>';
+                document.getElementById('adminStatisticsContent').innerHTML = `
+                    <div class="error-message" style="padding: 20px;">
+                        <p><strong>Error de conexión:</strong> ${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 12px;">Verifica tu conexión y permisos.</p>
+                    </div>
+                `;
             }
         }
 
