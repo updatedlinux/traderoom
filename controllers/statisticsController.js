@@ -169,7 +169,15 @@ const generateSessionExcel = async (req, res) => {
 
     infoSheet.getCell(`A${currentRow}`).value = 'Rango de Fechas:';
     infoSheet.getCell(`A${currentRow}`).style = labelStyle;
-    infoSheet.getCell(`B${currentRow}`).value = `${new Date(period.start_date).toLocaleDateString('es-CO')} - ${new Date(period.end_date).toLocaleDateString('es-CO')}`;
+    // Formatear fechas directamente desde strings YYYY-MM-DD sin conversión de zona horaria
+    const formatDateFromString = (dateStr) => {
+      if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+      }
+      return dateStr;
+    };
+    infoSheet.getCell(`B${currentRow}`).value = `${formatDateFromString(period.start_date)} - ${formatDateFromString(period.end_date)}`;
     currentRow++;
 
     infoSheet.getCell(`A${currentRow}`).value = 'Capital Inicial del Periodo:';
@@ -193,7 +201,15 @@ const generateSessionExcel = async (req, res) => {
 
     infoSheet.getCell(`A${currentRow}`).value = 'Fecha:';
     infoSheet.getCell(`A${currentRow}`).style = labelStyle;
-    infoSheet.getCell(`B${currentRow}`).value = new Date(session.date).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
+    // Formatear fecha directamente desde el string YYYY-MM-DD sin conversión de zona horaria
+    const sessionDateStr = session.date; // Ya viene como YYYY-MM-DD de la BD
+    if (sessionDateStr && /^\d{4}-\d{2}-\d{2}$/.test(sessionDateStr)) {
+      const [year, month, day] = sessionDateStr.split('-');
+      infoSheet.getCell(`B${currentRow}`).value = `${day}/${month}/${year}`;
+    } else {
+      // Fallback si no está en el formato esperado
+      infoSheet.getCell(`B${currentRow}`).value = sessionDateStr;
+    }
     currentRow++;
 
     infoSheet.getCell(`A${currentRow}`).value = 'Capital Inicial:';
