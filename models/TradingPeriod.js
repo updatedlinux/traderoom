@@ -67,6 +67,11 @@ const TradingPeriod = sequelize.define('TradingPeriod', {
     type: DataTypes.ENUM('active', 'completed', 'paused'),
     allowNull: false,
     defaultValue: 'active'
+  },
+  nickname: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: 'Sobrenombre o apodo para identificar el periodo fácilmente (ej: IQOption, Quotex, Cuenta Demo)'
   }
 }, {
   tableName: 'trading_periods',

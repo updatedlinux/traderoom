@@ -31,6 +31,7 @@ const createPeriod = async (req, res) => {
       start_date,
       end_date,
       initial_capital,
+      nickname,
       daily_target_pct = 0.15,
       profit_pct = 0.80,
       risk_per_trade_pct = 0.05,
@@ -53,6 +54,7 @@ const createPeriod = async (req, res) => {
       end_date: end_date.split('T')[0], // Asegurar formato YYYY-MM-DD
       initial_capital: parseFloat(initial_capital),
       current_capital: parseFloat(initial_capital),
+      nickname: nickname ? nickname.trim() : null,
       daily_target_pct: parseFloat(daily_target_pct),
       profit_pct: parseFloat(profit_pct),
       risk_per_trade_pct: parseFloat(risk_per_trade_pct),
@@ -125,6 +127,7 @@ const updatePeriod = async (req, res) => {
       start_date,
       end_date,
       initial_capital,
+      nickname,
       daily_target_pct = 0.15,
       profit_pct = 0.80,
       risk_per_trade_pct = 0.05,

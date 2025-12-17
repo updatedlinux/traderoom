@@ -9,6 +9,7 @@
     "init:db": "node scripts/initDb.js",
     "sync:db": "node scripts/syncDb.js",
     "add:payout-column": "node scripts/addPayoutRealColumn.js",
+    "add:nickname-column": "node scripts/addNicknameColumn.js",
     "generate:secret": "node scripts/generateSecret.js"
   },
   "keywords": [

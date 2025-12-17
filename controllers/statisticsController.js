@@ -164,7 +164,7 @@ const generateSessionExcel = async (req, res) => {
 
     infoSheet.getCell(`A${currentRow}`).value = 'Periodo ID:';
     infoSheet.getCell(`A${currentRow}`).style = labelStyle;
-    infoSheet.getCell(`B${currentRow}`).value = period.id;
+    infoSheet.getCell(`B${currentRow}`).value = period.nickname ? `${period.id} - ${period.nickname}` : period.id;
     currentRow++;
 
     infoSheet.getCell(`A${currentRow}`).value = 'Rango de Fechas:';
