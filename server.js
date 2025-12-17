@@ -79,11 +79,11 @@ app.use(express.urlencoded({ extended: true }));
 // Servir archivos estáticos desde assets
 app.use(express.static(path.join(__dirname, 'assets')));
 
-// Rutas API
+// Rutas API - IMPORTANTE: Orden específico primero, luego general
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api', traderRoutes);
-app.use('/api/statistics', require('./routes/statistics'));
+app.use('/api/statistics', require('./routes/statistics')); // Debe ir ANTES de /api para evitar conflicto
+app.use('/api', traderRoutes); // Esta es más general, debe ir al final
 
 // Ruta raíz - servir index.html
 app.get('/', (req, res) => {
