@@ -5,7 +5,7 @@ const { requireAuth, requireRole } = require('../middlewares/auth');
 
 // Rutas para traders
 router.get('/trader', requireAuth, requireRole('trader'), statisticsController.getTraderStatistics);
-router.get('/trader/sessions/:id/pdf', requireAuth, requireRole('trader'), statisticsController.generateSessionPDF);
+router.get('/trader/sessions/:id/excel', requireAuth, requireRole('trader'), statisticsController.generateSessionExcel);
 
 // Rutas para admin
 router.get('/admin', requireAuth, requireRole('admin'), statisticsController.getAdminStatistics);

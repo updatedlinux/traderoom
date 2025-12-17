@@ -1,8 +1,6 @@
 const { TradingPeriod, DailySession, Trade, User } = require('../models');
 const { Op } = require('sequelize');
-const PDFDocument = require('pdfkit');
-const fs = require('fs');
-const path = require('path');
+const ExcelJS = require('exceljs');
 
 /**
  * Obtiene estadísticas de sesiones cerradas para un trader
@@ -79,9 +77,9 @@ const getTraderStatistics = async (req, res) => {
 };
 
 /**
- * Genera un PDF de una sesión específica
+ * Genera un archivo Excel de una sesión específica con gráficas
  */
-const generateSessionPDF = async (req, res) => {
+const generateSessionExcel = async (req, res) => {
   try {
     const userId = req.session.userId;
     const { id: sessionId } = req.params;
@@ -107,15 +105,11 @@ const generateSessionPDF = async (req, res) => {
       });
     }
 
-    // Crear documento PDF
-    const doc = new PDFDocument({ margin: 50 });
-    
-    // Configurar headers de respuesta
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="sesion-${session.date}-${session.id}.pdf"`);
-    
-    // Pipe del PDF a la respuesta
-    doc.pipe(res);
+    // Crear workbook de Excel
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'TradeRoom';
+    workbook.created = new Date();
+    workbook.modified = new Date();
 
     const period = session.period;
     const trades = session.trades || [];
@@ -125,60 +119,154 @@ const generateSessionPDF = async (req, res) => {
     const dailyTarget = startingCapital * parseFloat(period.daily_target_pct);
     const maxDailyLoss = startingCapital * parseFloat(period.max_daily_loss_pct);
 
+    // Hoja 1: Información General
+    const infoSheet = workbook.addWorksheet('Información');
+    
+    // Estilos
+    const headerStyle = {
+      font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
+      fill: {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF00568E' }
+      },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+
+    const titleStyle = {
+      font: { bold: true, size: 16, color: { argb: 'FF00568E' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+
+    const labelStyle = {
+      font: { bold: true, size: 11 },
+      fill: {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE3F2FD' }
+      }
+    };
+
     // Título
-    doc.fontSize(20).text('TradeRoom - Reporte de Sesión', { align: 'center' });
-    doc.moveDown();
+    infoSheet.mergeCells('A1:D1');
+    infoSheet.getCell('A1').value = 'TradeRoom - Reporte de Sesión';
+    infoSheet.getCell('A1').style = titleStyle;
+    infoSheet.getRow(1).height = 25;
 
-    // Información del periodo
-    doc.fontSize(14).text('Información del Periodo', { underline: true });
-    doc.fontSize(10);
-    doc.text(`Periodo ID: ${period.id}`);
-    doc.text(`Rango: ${new Date(period.start_date).toLocaleDateString('es-CO')} - ${new Date(period.end_date).toLocaleDateString('es-CO')}`);
-    doc.text(`Capital Inicial del Periodo: $${parseFloat(period.initial_capital).toFixed(2)}`);
-    doc.text(`Capital Actual del Periodo: $${parseFloat(period.current_capital).toFixed(2)}`);
-    doc.moveDown();
+    let currentRow = 3;
 
-    // Información de la sesión
-    doc.fontSize(14).text('Información de la Sesión', { underline: true });
-    doc.fontSize(10);
-    doc.text(`Fecha: ${new Date(session.date).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' })}`);
-    doc.text(`Capital Inicial: $${startingCapital.toFixed(2)}`);
-    doc.text(`Capital Final: $${endingCapital.toFixed(2)}`);
-    doc.text(`PnL Diario: $${dailyPnL.toFixed(2)}`);
-    doc.text(`Meta Diaria: $${dailyTarget.toFixed(2)} (${(parseFloat(period.daily_target_pct) * 100).toFixed(2)}%)`);
-    doc.text(`Pérdida Máxima: $${maxDailyLoss.toFixed(2)} (${(parseFloat(period.max_daily_loss_pct) * 100).toFixed(2)}%)`);
-    doc.text(`Número de Operaciones: ${session.num_trades || 0}`);
-    doc.text(`Estado: ${session.status}`);
-    doc.moveDown();
+    // Información del Periodo
+    infoSheet.getCell(`A${currentRow}`).value = 'INFORMACIÓN DEL PERIODO';
+    infoSheet.getCell(`A${currentRow}`).style = headerStyle;
+    infoSheet.mergeCells(`A${currentRow}:D${currentRow}`);
+    infoSheet.getRow(currentRow).height = 20;
+    currentRow++;
 
-    // Operaciones
+    infoSheet.getCell(`A${currentRow}`).value = 'Periodo ID:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = period.id;
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Rango de Fechas:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = `${new Date(period.start_date).toLocaleDateString('es-CO')} - ${new Date(period.end_date).toLocaleDateString('es-CO')}`;
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Capital Inicial del Periodo:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = parseFloat(period.initial_capital).toFixed(2);
+    infoSheet.getCell(`B${currentRow}`).numFmt = '$#,##0.00';
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Capital Actual del Periodo:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = parseFloat(period.current_capital).toFixed(2);
+    infoSheet.getCell(`B${currentRow}`).numFmt = '$#,##0.00';
+    currentRow += 2;
+
+    // Información de la Sesión
+    infoSheet.getCell(`A${currentRow}`).value = 'INFORMACIÓN DE LA SESIÓN';
+    infoSheet.getCell(`A${currentRow}`).style = headerStyle;
+    infoSheet.mergeCells(`A${currentRow}:D${currentRow}`);
+    infoSheet.getRow(currentRow).height = 20;
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Fecha:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = new Date(session.date).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Capital Inicial:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = startingCapital.toFixed(2);
+    infoSheet.getCell(`B${currentRow}`).numFmt = '$#,##0.00';
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Capital Final:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = endingCapital.toFixed(2);
+    infoSheet.getCell(`B${currentRow}`).numFmt = '$#,##0.00';
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'PnL Diario:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = dailyPnL.toFixed(2);
+    infoSheet.getCell(`B${currentRow}`).numFmt = '$#,##0.00';
+    infoSheet.getCell(`B${currentRow}`).font = { color: { argb: dailyPnL >= 0 ? 'FF00AA00' : 'FFFF0000' }, bold: true };
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Meta Diaria:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = dailyTarget.toFixed(2);
+    infoSheet.getCell(`B${currentRow}`).numFmt = '$#,##0.00';
+    infoSheet.getCell(`C${currentRow}`).value = `(${(parseFloat(period.daily_target_pct) * 100).toFixed(2)}%)`;
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Pérdida Máxima:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = maxDailyLoss.toFixed(2);
+    infoSheet.getCell(`B${currentRow}`).numFmt = '$#,##0.00';
+    infoSheet.getCell(`C${currentRow}`).value = `(${(parseFloat(period.max_daily_loss_pct) * 100).toFixed(2)}%)`;
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Número de Operaciones:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = session.num_trades || 0;
+    currentRow++;
+
+    infoSheet.getCell(`A${currentRow}`).value = 'Estado:';
+    infoSheet.getCell(`A${currentRow}`).style = labelStyle;
+    infoSheet.getCell(`B${currentRow}`).value = session.status;
+    currentRow += 2;
+
+    infoSheet.getCell(`A${currentRow}`).value = `Generado el ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}`;
+    infoSheet.getCell(`A${currentRow}`).font = { italic: true, size: 9 };
+    infoSheet.mergeCells(`A${currentRow}:D${currentRow}`);
+
+    // Ajustar ancho de columnas
+    infoSheet.getColumn('A').width = 30;
+    infoSheet.getColumn('B').width = 20;
+    infoSheet.getColumn('C').width = 15;
+    infoSheet.getColumn('D').width = 15;
+
+    // Hoja 2: Operaciones
+    const tradesSheet = workbook.addWorksheet('Operaciones');
+    
+    // Encabezados
+    tradesSheet.getRow(1).values = ['#', 'Fecha y Hora', 'Par de Divisas', 'Stake', 'Resultado', 'Payout (%)', 'PnL', 'Capital Después', 'Martingala'];
+    tradesSheet.getRow(1).font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    tradesSheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF00568E' }
+    };
+    tradesSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+    tradesSheet.getRow(1).height = 20;
+
+    // Datos de operaciones
     if (trades.length > 0) {
-      doc.fontSize(14).text('Operaciones', { underline: true });
-      doc.moveDown(0.5);
-      
-      // Encabezados de tabla
-      const tableTop = doc.y;
-      const tableLeft = 50;
-      const colWidths = [40, 80, 70, 60, 70, 60, 70, 50];
-      const headers = ['#', 'Hora', 'Par', 'Stake', 'Resultado', 'Payout', 'PnL', 'Mart.'];
-      
-      doc.fontSize(9).font('Helvetica-Bold');
-      let x = tableLeft;
-      headers.forEach((header, i) => {
-        doc.text(header, x, tableTop, { width: colWidths[i] });
-        x += colWidths[i];
-      });
-      
-      // Línea separadora
-      doc.moveTo(tableLeft, doc.y + 5)
-         .lineTo(tableLeft + colWidths.reduce((a, b) => a + b, 0), doc.y + 5)
-         .stroke();
-      
-      doc.moveDown(0.5);
-      doc.font('Helvetica').fontSize(8);
-      
-      // Filas de datos
-      trades.forEach(trade => {
+      trades.forEach((trade, index) => {
+        const row = tradesSheet.getRow(index + 2);
         const tradeDate = new Date(trade.created_at);
         const timeStr = tradeDate.toLocaleTimeString('es-CO', { 
           timeZone: 'America/Bogota',
@@ -192,39 +280,194 @@ const generateSessionPDF = async (req, res) => {
           month: '2-digit',
           day: '2-digit'
         });
-        
-        const row = [
-          trade.trade_number.toString(),
+
+        row.values = [
+          trade.trade_number,
           `${dateStr} ${timeStr}`,
           trade.currency_pair || 'N/A',
-          `$${parseFloat(trade.stake).toFixed(2)}`,
+          parseFloat(trade.stake),
           trade.result,
-          `${(parseFloat(trade.payout_real || 0) * 100).toFixed(2)}%`,
-          `$${parseFloat(trade.pnl).toFixed(2)}`,
-          trade.martingale_step.toString()
+          parseFloat(trade.payout_real || 0) * 100,
+          parseFloat(trade.pnl),
+          parseFloat(trade.capital_after),
+          trade.martingale_step
         ];
-        
-        x = tableLeft;
-        row.forEach((cell, i) => {
-          doc.text(cell, x, doc.y, { width: colWidths[i] });
-          x += colWidths[i];
-        });
-        doc.moveDown(0.3);
+
+        // Formato de números
+        row.getCell(4).numFmt = '$#,##0.00'; // Stake
+        row.getCell(6).numFmt = '0.00%'; // Payout
+        row.getCell(7).numFmt = '$#,##0.00'; // PnL
+        row.getCell(8).numFmt = '$#,##0.00'; // Capital Después
+
+        // Color según resultado
+        if (trade.result === 'ITM') {
+          row.getCell(5).font = { color: { argb: 'FF00AA00' }, bold: true };
+          row.getCell(7).font = { color: { argb: 'FF00AA00' } };
+        } else {
+          row.getCell(5).font = { color: { argb: 'FFFF0000' }, bold: true };
+          row.getCell(7).font = { color: { argb: 'FFFF0000' } };
+        }
+
+        // Alineación
+        row.alignment = { vertical: 'middle', horizontal: 'center' };
       });
+
+      // Ajustar ancho de columnas
+      tradesSheet.getColumn(1).width = 8;  // #
+      tradesSheet.getColumn(2).width = 20; // Fecha y Hora
+      tradesSheet.getColumn(3).width = 15; // Par
+      tradesSheet.getColumn(4).width = 12; // Stake
+      tradesSheet.getColumn(5).width = 12; // Resultado
+      tradesSheet.getColumn(6).width = 12; // Payout
+      tradesSheet.getColumn(7).width = 12; // PnL
+      tradesSheet.getColumn(8).width = 15; // Capital Después
+      tradesSheet.getColumn(9).width = 12; // Martingala
+
+      // Congelar primera fila
+      tradesSheet.views = [{
+        state: 'frozen',
+        ySplit: 1
+      }];
     } else {
-      doc.text('No hay operaciones registradas en esta sesión.');
+      tradesSheet.getCell('A2').value = 'No hay operaciones registradas en esta sesión.';
     }
 
-    doc.moveDown();
-    doc.fontSize(8).text(`Generado el ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}`, { align: 'center' });
+    // Hoja 3: Gráficas
+    const chartsSheet = workbook.addWorksheet('Gráficas');
 
-    // Finalizar PDF
-    doc.end();
+    // Datos para gráficas
+    if (trades.length > 0) {
+      // Preparar datos para gráfica de evolución de capital
+      chartsSheet.getCell('A1').value = 'Operación';
+      chartsSheet.getCell('B1').value = 'Capital Después';
+      chartsSheet.getCell('C1').value = 'PnL Acumulado';
+      chartsSheet.getRow(1).font = { bold: true };
+      chartsSheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF00568E' }
+      };
+      chartsSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+      let cumulativePnL = 0;
+      trades.forEach((trade, index) => {
+        cumulativePnL += parseFloat(trade.pnl);
+        chartsSheet.getCell(`A${index + 2}`).value = trade.trade_number;
+        chartsSheet.getCell(`B${index + 2}`).value = parseFloat(trade.capital_after);
+        chartsSheet.getCell(`C${index + 2}`).value = cumulativePnL;
+        chartsSheet.getCell(`B${index + 2}`).numFmt = '$#,##0.00';
+        chartsSheet.getCell(`C${index + 2}`).numFmt = '$#,##0.00';
+      });
+
+      // Gráfica 1: Evolución del Capital
+      const capitalChart = chartsSheet.addChart({
+        type: 'line',
+        name: 'Evolución del Capital',
+        title: {
+          name: 'Evolución del Capital por Operación'
+        }
+      });
+      
+      capitalChart.addSeries({
+        name: 'Capital Después',
+        categories: {
+          address: `A2:A${trades.length + 1}`,
+          sheet: chartsSheet
+        },
+        values: {
+          address: `B2:B${trades.length + 1}`,
+          sheet: chartsSheet
+        }
+      });
+
+      capitalChart.setPosition('A' + (trades.length + 3), 0, 0, 0);
+      capitalChart.width = 800;
+      capitalChart.height = 400;
+
+      // Gráfica 2: PnL Acumulado
+      const pnlChart = chartsSheet.addChart({
+        type: 'line',
+        name: 'PnL Acumulado',
+        title: {
+          name: 'PnL Acumulado por Operación'
+        }
+      });
+      
+      pnlChart.addSeries({
+        name: 'PnL Acumulado',
+        categories: {
+          address: `A2:A${trades.length + 1}`,
+          sheet: chartsSheet
+        },
+        values: {
+          address: `C2:C${trades.length + 1}`,
+          sheet: chartsSheet
+        }
+      });
+
+      pnlChart.setPosition('A' + (trades.length + 25), 0, 0, 0);
+      pnlChart.width = 800;
+      pnlChart.height = 400;
+
+      // Gráfica 3: Resultados ITM vs OTM
+      const itmCount = trades.filter(t => t.result === 'ITM').length;
+      const otmCount = trades.filter(t => t.result === 'OTM').length;
+
+      chartsSheet.getCell('E1').value = 'Resultado';
+      chartsSheet.getCell('F1').value = 'Cantidad';
+      chartsSheet.getRow(1).getCell(5).font = { bold: true };
+      chartsSheet.getRow(1).getCell(6).font = { bold: true };
+      chartsSheet.getCell('E2').value = 'ITM';
+      chartsSheet.getCell('F2').value = itmCount;
+      chartsSheet.getCell('E3').value = 'OTM';
+      chartsSheet.getCell('F3').value = otmCount;
+
+      const pieChart = chartsSheet.addChart({
+        type: 'pie',
+        name: 'Distribución de Resultados',
+        title: {
+          name: 'Distribución ITM vs OTM'
+        }
+      });
+
+      pieChart.addSeries({
+        name: 'Resultados',
+        categories: {
+          address: 'E2:E3',
+          sheet: chartsSheet
+        },
+        values: {
+          address: 'F2:F3',
+          sheet: chartsSheet
+        }
+      });
+
+      pieChart.setPosition('I' + (trades.length + 3), 0, 0, 0);
+      pieChart.width = 400;
+      pieChart.height = 400;
+
+      // Ajustar ancho de columnas
+      chartsSheet.getColumn('A').width = 12;
+      chartsSheet.getColumn('B').width = 18;
+      chartsSheet.getColumn('C').width = 18;
+      chartsSheet.getColumn('E').width = 12;
+      chartsSheet.getColumn('F').width = 12;
+    } else {
+      chartsSheet.getCell('A1').value = 'No hay datos suficientes para generar gráficas.';
+    }
+
+    // Configurar headers de respuesta
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="sesion-${session.date}-${session.id}.xlsx"`);
+
+    // Escribir el workbook a la respuesta
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (error) {
-    console.error('Error al generar PDF:', error);
+    console.error('Error al generar Excel:', error);
     res.status(500).json({
       success: false,
-      error: 'Error al generar PDF'
+      error: 'Error al generar Excel'
     });
   }
 };
@@ -364,7 +607,7 @@ const getUserDetails = async (req, res) => {
 
 module.exports = {
   getTraderStatistics,
-  generateSessionPDF,
+  generateSessionExcel,
   getAdminStatistics,
   getUserDetails
 };

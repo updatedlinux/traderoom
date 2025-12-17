@@ -1878,8 +1878,8 @@
                                                     <td>${session.num_trades || 0}</td>
                                                     <td><span class="status-badge ${session.status}">${session.status}</span></td>
                                                     <td>
-                                                        <button class="btn btn-sm" onclick="downloadSessionPDF(${session.id})">
-                                                            <i class="fas fa-download"></i> PDF
+                                                        <button class="btn btn-sm" onclick="downloadSessionExcel(${session.id})">
+                                                            <i class="fas fa-download"></i> Excel
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -1896,9 +1896,9 @@
             document.getElementById('statisticsContent').innerHTML = html;
         }
 
-        async function downloadSessionPDF(sessionId) {
+        async function downloadSessionExcel(sessionId) {
             try {
-                const response = await fetch(`${API_BASE}/statistics/trader/sessions/${sessionId}/pdf`, { 
+                const response = await fetch(`${API_BASE}/statistics/trader/sessions/${sessionId}/excel`, { 
                     credentials: 'include' 
                 });
                 
@@ -1907,18 +1907,18 @@
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `sesion-${sessionId}.pdf`;
+                    a.download = `sesion-${sessionId}.xlsx`;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
                 } else {
                     const data = await response.json();
-                    alert(data.error || 'Error al descargar PDF');
+                    alert(data.error || 'Error al descargar Excel');
                 }
             } catch (error) {
-                console.error('Error al descargar PDF:', error);
-                alert('Error al descargar PDF');
+                console.error('Error al descargar Excel:', error);
+                alert('Error al descargar Excel');
             }
         }
 
