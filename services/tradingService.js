@@ -60,20 +60,42 @@ function calculateNextStake(currentCapital, riskPerTradePct, lastStake, lastMart
   let stake;
   let martingaleStep = 0;
 
+  console.log('DEBUG calculateNextStake - Parámetros:', {
+    currentCapital,
+    riskPerTradePct,
+    lastStake,
+    lastMartingaleStep,
+    maxMartingaleSteps,
+    lastResult
+  });
+
   // Si la última operación fue OTM y no se alcanzó el límite de martingala
   if (lastResult === 'OTM' && lastMartingaleStep < maxMartingaleSteps) {
     // Aplicar martingala: doble del stake anterior
     martingaleStep = lastMartingaleStep + 1;
     stake = lastStake * 2;
+    console.log('DEBUG calculateNextStake - Aplicando martingala:', {
+      martingaleStep,
+      stake,
+      lastStake,
+      multiplicador: 2
+    });
   } else {
     // Primera operación o después de una ITM: usar stake base
     stake = calculateBaseStake(currentCapital, riskPerTradePct);
     martingaleStep = 0;
+    console.log('DEBUG calculateNextStake - Usando stake base:', {
+      stake,
+      reason: lastResult === 'ITM' ? 'Última operación fue ITM' : 
+              lastMartingaleStep >= maxMartingaleSteps ? 'Límite de martingala alcanzado' : 
+              'Primera operación'
+    });
   }
 
   // Asegurar que el stake no exceda el capital disponible
   if (stake > currentCapital) {
     stake = currentCapital;
+    console.log('DEBUG calculateNextStake - Stake ajustado al capital disponible:', stake);
   }
 
   return { stake, martingaleStep };
@@ -222,11 +244,30 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     );
     stake = stakeCalc.stake;
     martingaleStep = stakeCalc.martingaleStep;
+    
+    console.log('DEBUG registerTrade - Cálculo de stake para nueva operación:', {
+      lastTradeResult: lastTrade.result,
+      lastTradeMartingaleStep: lastTrade.martingale_step,
+      lastTradeStake: lastTrade.stake,
+      calculatedStake: stake,
+      calculatedMartingaleStep: martingaleStep
+    });
   } else {
     // Primera operación: usar stake base
     stake = calculateBaseStake(currentCapital, parseFloat(period.risk_per_trade_pct));
     martingaleStep = 0;
+    console.log('DEBUG registerTrade - Primera operación, stake base:', stake);
   }
+
+  // El martingaleStep calculado es el paso que se usará para ESTA operación
+  // Después de ejecutar esta operación, si es OTM, el siguiente paso sería martingaleStep + 1
+  // Pero para guardar en el trade, usamos el martingaleStep calculado (el paso de esta operación)
+  
+  console.log('DEBUG registerTrade - Martingale step para guardar en trade:', {
+    result,
+    martingaleStep,
+    stake
+  });
 
   // Verificar que el stake no exceda el capital disponible
   if (stake > currentCapital) {

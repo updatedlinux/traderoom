@@ -281,6 +281,17 @@ const getSession = async (req, res) => {
       if (lastTrade) {
         try {
           const tradingService = require('../services/tradingService');
+          
+          // Debug: verificar datos del último trade
+          console.log('DEBUG getSession - Último trade:', {
+            trade_number: lastTrade.trade_number,
+            stake: lastTrade.stake,
+            result: lastTrade.result,
+            martingale_step: lastTrade.martingale_step,
+            maxMartingaleSteps: period.martingale_steps,
+            currentCapital: currentCapital
+          });
+          
           const stakeCalc = tradingService.calculateNextStake(
             currentCapital,
             parseFloat(period.risk_per_trade_pct),
@@ -289,6 +300,12 @@ const getSession = async (req, res) => {
             period.martingale_steps,
             lastTrade.result
           );
+          
+          console.log('DEBUG getSession - Cálculo de stake:', {
+            calculatedStake: stakeCalc.stake,
+            calculatedMartingaleStep: stakeCalc.martingaleStep
+          });
+          
           nextStake = stakeCalc.stake;
           nextMartingaleStep = stakeCalc.martingaleStep;
         } catch (error) {
