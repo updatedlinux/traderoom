@@ -21,10 +21,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'traderoom-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
+  name: 'traderoom.sid', // Nombre de la cookie
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
+    secure: false, // Permitir cookies en HTTP y HTTPS (ajustar según necesidad)
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 horas
+    maxAge: 24 * 60 * 60 * 1000, // 24 horas
+    sameSite: 'lax' // Permitir cookies en requests cross-origin
   }
 }));
 

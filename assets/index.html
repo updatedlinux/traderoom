@@ -190,9 +190,9 @@
         }
 
         .logo {
-            width: 200px;
+            width: 300px;
             height: auto;
-            max-height: 60px;
+            max-height: 80px;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
             object-fit: contain;
         }
@@ -646,7 +646,8 @@
             }
 
             .logo {
-                width: 150px;
+                width: 200px;
+                max-height: 60px;
             }
         }
     </style>
@@ -929,7 +930,10 @@
         // Autenticación
         async function checkAuth() {
             try {
-                const response = await fetch(`${API_BASE}/auth/me`);
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    method: 'GET',
+                    credentials: 'include' // Incluir cookies en la solicitud
+                });
                 const data = await response.json();
                 if (data.success) {
                     currentUser = data.user;
@@ -938,6 +942,7 @@
                     showLogin();
                 }
             } catch (error) {
+                // Silenciar el error 401 al cargar la página (es normal si no hay sesión)
                 showLogin();
             }
         }
@@ -951,6 +956,19 @@
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('mainContent').classList.remove('content-hidden');
             document.getElementById('userInfo').textContent = currentUser.username;
+            
+            // Ocultar ambos menús primero
+            document.getElementById('adminMenu').style.display = 'none';
+            document.getElementById('traderMenu').style.display = 'none';
+            
+            // Ocultar sección de usuarios si no es admin
+            const usersSection = document.getElementById('usersSection');
+            if (usersSection) {
+                if (currentUser.role !== 'admin') {
+                    usersSection.style.display = 'none';
+                    usersSection.classList.remove('active');
+                }
+            }
             
             if (currentUser.role === 'admin') {
                 document.getElementById('adminMenu').style.display = 'block';
@@ -1012,11 +1030,31 @@
 
         // Navegación
         function showSection(sectionName) {
+            // Validar que solo admin puede acceder a la sección de usuarios
+            if (sectionName === 'users' && (!currentUser || currentUser.role !== 'admin')) {
+                console.warn('Acceso denegado: Solo administradores pueden acceder a esta sección');
+                if (currentUser && currentUser.role === 'trader') {
+                    showSection('periods');
+                }
+                return;
+            }
+
             document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
             
-            document.getElementById(sectionName + 'Section').classList.add('active');
-            event.target.closest('.menu-item').classList.add('active');
+            const sectionElement = document.getElementById(sectionName + 'Section');
+            if (!sectionElement) {
+                console.error('Sección no encontrada:', sectionName);
+                return;
+            }
+            
+            sectionElement.classList.add('active');
+            if (event && event.target) {
+                const menuItem = event.target.closest('.menu-item');
+                if (menuItem) {
+                    menuItem.classList.add('active');
+                }
+            }
 
             if (sectionName === 'users') loadUsers();
             else if (sectionName === 'periods') loadPeriods();
