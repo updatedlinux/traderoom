@@ -730,6 +730,10 @@
                     <i class="fas fa-users"></i>
                     <span>Usuarios</span>
                 </div>
+                <div class="menu-item" onclick="showSection('adminStatistics')">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Estadísticas</span>
+                </div>
             </div>
 
             <!-- Trader Menu -->
@@ -801,8 +805,26 @@
                 <div class="section">
                     <div class="section-header">
                         <h2><i class="fas fa-chart-bar"></i> Estadísticas</h2>
+                        <button class="btn" onclick="loadStatistics()">
+                            <i class="fas fa-sync-alt"></i> Actualizar
+                        </button>
                     </div>
                     <div id="statisticsContent">
+                        <p>Cargando estadísticas...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Section: Statistics -->
+            <div id="adminStatisticsSection" class="content-section">
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-chart-bar"></i> Estadísticas de Usuarios</h2>
+                        <button class="btn" onclick="loadAdminStatistics()">
+                            <i class="fas fa-sync-alt"></i> Actualizar
+                        </button>
+                    </div>
+                    <div id="adminStatisticsContent">
                         <p>Cargando estadísticas...</p>
                     </div>
                 </div>
@@ -1100,6 +1122,7 @@
             else if (sectionName === 'periods') loadPeriods();
             else if (sectionName === 'currentSession') loadCurrentSession();
             else if (sectionName === 'statistics') loadStatistics();
+            else if (sectionName === 'adminStatistics') loadAdminStatistics();
         }
 
         // Admin Functions
@@ -1756,7 +1779,422 @@
         }
 
         async function loadStatistics() {
-            document.getElementById('statisticsContent').innerHTML = '<p>Funcionalidad de estadísticas en desarrollo.</p>';
+            try {
+                const response = await fetch(`${API_BASE}/statistics/trader`, { credentials: 'include' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderTraderStatistics(data);
+                } else {
+                    document.getElementById('statisticsContent').innerHTML = `<p class="error-message">${data.error || 'Error al cargar estadísticas'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error al cargar estadísticas:', error);
+                document.getElementById('statisticsContent').innerHTML = '<p class="error-message">Error al cargar estadísticas</p>';
+            }
+        }
+
+        function renderTraderStatistics(data) {
+            const { statistics, periods } = data;
+            
+            let html = `
+                <div class="card">
+                    <h3>Resumen General</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Periodos:</span>
+                        <span class="stat-value">${statistics.totalPeriods}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Sesiones Cerradas:</span>
+                        <span class="stat-value">${statistics.totalSessions}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Operaciones:</span>
+                        <span class="stat-value">${statistics.totalTrades}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">PnL Total:</span>
+                        <span class="stat-value ${parseFloat(statistics.totalPnL) >= 0 ? 'positive' : 'negative'}">$${parseFloat(statistics.totalPnL).toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Sesiones con Meta Alcanzada:</span>
+                        <span class="stat-value positive">${statistics.sessionsWithTarget}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Sesiones con Stop Loss:</span>
+                        <span class="stat-value negative">${statistics.sessionsWithStop}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Tasa de Éxito:</span>
+                        <span class="stat-value">${statistics.winRate}%</span>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px;">Sesiones por Periodo</h3>
+            `;
+
+            if (periods.length === 0) {
+                html += '<p>No hay periodos con sesiones cerradas.</p>';
+            } else {
+                periods.forEach(period => {
+                    if (period.sessions && period.sessions.length > 0) {
+                        html += `
+                            <div class="card" style="margin-bottom: 20px;">
+                                <h3>Periodo ${period.id} - ${formatDateForDisplay(period.start_date)} a ${formatDateForDisplay(period.end_date)}</h3>
+                                <div class="stat-row">
+                                    <span class="stat-label">Capital Inicial:</span>
+                                    <span class="stat-value">$${parseFloat(period.initial_capital).toFixed(2)}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Capital Actual:</span>
+                                    <span class="stat-value">$${parseFloat(period.current_capital).toFixed(2)}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Sesiones Cerradas:</span>
+                                    <span class="stat-value">${period.sessions.length}</span>
+                                </div>
+                                
+                                <h4 style="margin-top: 20px;">Sesiones</h4>
+                                <div style="overflow-x: auto;">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Capital Inicial</th>
+                                                <th>Capital Final</th>
+                                                <th>PnL</th>
+                                                <th>Operaciones</th>
+                                                <th>Estado</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${period.sessions.map(session => `
+                                                <tr>
+                                                    <td>${formatDateForDisplay(session.date)}</td>
+                                                    <td>$${parseFloat(session.starting_capital).toFixed(2)}</td>
+                                                    <td>$${parseFloat(session.ending_capital || (parseFloat(session.starting_capital) + parseFloat(session.daily_pnl))).toFixed(2)}</td>
+                                                    <td class="${parseFloat(session.daily_pnl) >= 0 ? 'positive' : 'negative'}">$${parseFloat(session.daily_pnl).toFixed(2)}</td>
+                                                    <td>${session.num_trades || 0}</td>
+                                                    <td><span class="status-badge ${session.status}">${session.status}</span></td>
+                                                    <td>
+                                                        <button class="btn btn-sm" onclick="downloadSessionPDF(${session.id})">
+                                                            <i class="fas fa-download"></i> PDF
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            document.getElementById('statisticsContent').innerHTML = html;
+        }
+
+        async function downloadSessionPDF(sessionId) {
+            try {
+                const response = await fetch(`${API_BASE}/statistics/trader/sessions/${sessionId}/pdf`, { 
+                    credentials: 'include' 
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sesion-${sessionId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Error al descargar PDF');
+                }
+            } catch (error) {
+                console.error('Error al descargar PDF:', error);
+                alert('Error al descargar PDF');
+            }
+        }
+
+        async function loadAdminStatistics() {
+            try {
+                const response = await fetch(`${API_BASE}/statistics/admin`, { credentials: 'include' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderAdminStatistics(data);
+                } else {
+                    document.getElementById('adminStatisticsContent').innerHTML = `<p class="error-message">${data.error || 'Error al cargar estadísticas'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error al cargar estadísticas de admin:', error);
+                document.getElementById('adminStatisticsContent').innerHTML = '<p class="error-message">Error al cargar estadísticas</p>';
+            }
+        }
+
+        function renderAdminStatistics(data) {
+            const { globalStats, userStatistics } = data;
+            
+            let html = `
+                <div class="card">
+                    <h3>Estadísticas Globales</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Traders:</span>
+                        <span class="stat-value">${globalStats.totalTraders}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Traders Activos:</span>
+                        <span class="stat-value">${globalStats.activeTraders}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Periodos:</span>
+                        <span class="stat-value">${globalStats.totalPeriods}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Sesiones:</span>
+                        <span class="stat-value">${globalStats.totalSessions}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Operaciones:</span>
+                        <span class="stat-value">${globalStats.totalTrades}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">PnL Total:</span>
+                        <span class="stat-value ${parseFloat(globalStats.totalPnL) >= 0 ? 'positive' : 'negative'}">$${parseFloat(globalStats.totalPnL).toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px;">Estadísticas por Usuario</h3>
+            `;
+
+            if (userStatistics.length === 0) {
+                html += '<p>No hay traders registrados.</p>';
+            } else {
+                html += `
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Estado</th>
+                                    <th>Periodos</th>
+                                    <th>Sesiones</th>
+                                    <th>Operaciones</th>
+                                    <th>PnL Total</th>
+                                    <th>Meta Alcanzada</th>
+                                    <th>Stop Loss</th>
+                                    <th>Tasa Éxito</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${userStatistics.map(user => `
+                                    <tr>
+                                        <td><strong>${user.username}</strong></td>
+                                        <td><span class="status-badge ${user.isActive ? 'active' : 'inactive'}">${user.isActive ? 'Activo' : 'Inactivo'}</span></td>
+                                        <td>${user.totalPeriods}</td>
+                                        <td>${user.totalSessions}</td>
+                                        <td>${user.totalTrades}</td>
+                                        <td class="${parseFloat(user.totalPnL) >= 0 ? 'positive' : 'negative'}">$${parseFloat(user.totalPnL).toFixed(2)}</td>
+                                        <td class="positive">${user.sessionsWithTarget}</td>
+                                        <td class="negative">${user.sessionsWithStop}</td>
+                                        <td>${user.winRate}%</td>
+                                        <td>
+                                            <button class="btn btn-sm" onclick="viewUserDetails(${user.userId})">
+                                                <i class="fas fa-eye"></i> Ver Detalles
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            document.getElementById('adminStatisticsContent').innerHTML = html;
+        }
+
+        async function viewUserDetails(userId) {
+            try {
+                const response = await fetch(`${API_BASE}/statistics/admin/users/${userId}`, { credentials: 'include' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showUserDetailsModal(data.user);
+                } else {
+                    alert(data.error || 'Error al cargar detalles del usuario');
+                }
+            } catch (error) {
+                console.error('Error al cargar detalles del usuario:', error);
+                alert('Error al cargar detalles del usuario');
+            }
+        }
+
+        function showUserDetailsModal(user) {
+            let html = `
+                <div class="modal" id="userDetailsModal" style="display: block;">
+                    <div class="modal-content" style="max-width: 90%; max-height: 90vh; overflow-y: auto;">
+                        <div class="modal-header">
+                            <h2>Detalles de Usuario: ${user.username}</h2>
+                            <span class="close" onclick="closeUserDetailsModal()">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <div class="card">
+                                <h3>Información del Usuario</h3>
+                                <div class="stat-row">
+                                    <span class="stat-label">Usuario:</span>
+                                    <span class="stat-value">${user.username}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Rol:</span>
+                                    <span class="stat-value">${user.role}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Estado:</span>
+                                    <span class="status-badge ${user.isActive ? 'active' : 'inactive'}">${user.isActive ? 'Activo' : 'Inactivo'}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Fecha de Creación:</span>
+                                    <span class="stat-value">${new Date(user.createdAt).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' })}</span>
+                                </div>
+                            </div>
+            `;
+
+            if (user.periods && user.periods.length > 0) {
+                html += `<h3 style="margin-top: 20px;">Periodos y Sesiones</h3>`;
+                
+                user.periods.forEach(period => {
+                    html += `
+                        <div class="card" style="margin-bottom: 20px;">
+                            <h4>Periodo ${period.id} - ${formatDateForDisplay(period.start_date)} a ${formatDateForDisplay(period.end_date)}</h4>
+                            <div class="stat-row">
+                                <span class="stat-label">Capital Inicial:</span>
+                                <span class="stat-value">$${parseFloat(period.initial_capital).toFixed(2)}</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Capital Actual:</span>
+                                <span class="stat-value">$${parseFloat(period.current_capital).toFixed(2)}</span>
+                            </div>
+                            
+                            ${period.sessions && period.sessions.length > 0 ? `
+                                <h5 style="margin-top: 15px;">Sesiones (${period.sessions.length})</h5>
+                                <div style="overflow-x: auto;">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Capital Inicial</th>
+                                                <th>Capital Final</th>
+                                                <th>PnL</th>
+                                                <th>Operaciones</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${period.sessions.map(session => `
+                                                <tr>
+                                                    <td>${formatDateForDisplay(session.date)}</td>
+                                                    <td>$${parseFloat(session.starting_capital).toFixed(2)}</td>
+                                                    <td>$${parseFloat(session.ending_capital || (parseFloat(session.starting_capital) + parseFloat(session.daily_pnl))).toFixed(2)}</td>
+                                                    <td class="${parseFloat(session.daily_pnl) >= 0 ? 'positive' : 'negative'}">$${parseFloat(session.daily_pnl).toFixed(2)}</td>
+                                                    <td>${session.num_trades || 0}</td>
+                                                    <td><span class="status-badge ${session.status}">${session.status}</span></td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                ${period.sessions.map(session => {
+                                    if (session.trades && session.trades.length > 0) {
+                                        return `
+                                            <details style="margin-top: 15px;">
+                                                <summary style="cursor: pointer; font-weight: bold;">Operaciones de ${formatDateForDisplay(session.date)} (${session.trades.length})</summary>
+                                                <div style="overflow-x: auto; margin-top: 10px;">
+                                                    <table class="data-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>#</th>
+                                                                <th>Hora</th>
+                                                                <th>Par</th>
+                                                                <th>Stake</th>
+                                                                <th>Resultado</th>
+                                                                <th>Payout</th>
+                                                                <th>PnL</th>
+                                                                <th>Martingala</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            ${session.trades.map(trade => {
+                                                                const tradeDate = new Date(trade.created_at);
+                                                                const timeStr = tradeDate.toLocaleTimeString('es-CO', { 
+                                                                    timeZone: 'America/Bogota',
+                                                                    hour: '2-digit', 
+                                                                    minute: '2-digit', 
+                                                                    second: '2-digit' 
+                                                                });
+                                                                const dateStr = tradeDate.toLocaleDateString('es-CO', {
+                                                                    timeZone: 'America/Bogota',
+                                                                    year: 'numeric',
+                                                                    month: '2-digit',
+                                                                    day: '2-digit'
+                                                                });
+                                                                return `
+                                                                    <tr>
+                                                                        <td>${trade.trade_number}</td>
+                                                                        <td>${dateStr} ${timeStr}</td>
+                                                                        <td>${trade.currency_pair || 'N/A'}</td>
+                                                                        <td>$${parseFloat(trade.stake).toFixed(2)}</td>
+                                                                        <td><span class="status-badge ${trade.result === 'ITM' ? 'active' : 'inactive'}">${trade.result}</span></td>
+                                                                        <td>${trade.payout_real ? (parseFloat(trade.payout_real) * 100).toFixed(2) + '%' : 'N/A'}</td>
+                                                                        <td class="${parseFloat(trade.pnl) >= 0 ? 'positive' : 'negative'}">$${parseFloat(trade.pnl).toFixed(2)}</td>
+                                                                        <td>${trade.martingale_step}</td>
+                                                                    </tr>
+                                                                `;
+                                                            }).join('')}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </details>
+                                        `;
+                                    }
+                                    return '';
+                                }).join('')}
+                            ` : '<p>No hay sesiones en este periodo.</p>'}
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<p>Este usuario no tiene periodos registrados.</p>';
+            }
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Agregar el modal al body si no existe
+            let modal = document.getElementById('userDetailsModal');
+            if (modal) {
+                modal.outerHTML = html;
+            } else {
+                document.body.insertAdjacentHTML('beforeend', html);
+            }
+        }
+
+        function closeUserDetailsModal() {
+            const modal = document.getElementById('userDetailsModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
         }
 
         // Modal Functions

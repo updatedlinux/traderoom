@@ -13,6 +13,7 @@ const sequelize = require('./config/database');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const traderRoutes = require('./routes/trader');
+const statisticsRoutes = require('./routes/statistics');
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use(express.static(path.join(__dirname, 'assets')));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', traderRoutes);
+app.use('/api/statistics', require('./routes/statistics'));
 
 // Ruta raíz - servir index.html
 app.get('/', (req, res) => {
