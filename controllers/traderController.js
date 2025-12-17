@@ -263,6 +263,31 @@ const getSession = async (req, res) => {
     const maxDailyLoss = parseFloat(session.starting_capital) * parseFloat(period.max_daily_loss_pct);
     const currentCapital = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl);
 
+    // Calcular stake para la próxima operación
+    const trades = session.trades || [];
+    const lastTrade = trades.length > 0 ? trades[trades.length - 1] : null;
+    let nextStake = 0;
+    let nextMartingaleStep = 0;
+
+    if (session.status === 'in_progress') {
+      if (lastTrade) {
+        const stakeCalc = require('../services/tradingService').calculateNextStake(
+          currentCapital,
+          parseFloat(period.risk_per_trade_pct),
+          parseFloat(lastTrade.stake),
+          lastTrade.martingale_step,
+          period.martingale_steps,
+          lastTrade.result
+        );
+        nextStake = stakeCalc.stake;
+        nextMartingaleStep = stakeCalc.martingaleStep;
+      } else {
+        // Primera operación: usar stake base
+        nextStake = currentCapital * parseFloat(period.risk_per_trade_pct);
+        nextMartingaleStep = 0;
+      }
+    }
+
     res.json({
       success: true,
       session: {
@@ -270,6 +295,8 @@ const getSession = async (req, res) => {
         currentCapital,
         dailyTarget,
         maxDailyLoss,
+        nextStake,
+        nextMartingaleStep,
         period: {
           profit_pct: period.profit_pct,
           risk_per_trade_pct: period.risk_per_trade_pct,
@@ -290,7 +317,7 @@ const registerTrade = async (req, res) => {
   try {
     const userId = req.session.userId;
     const { id: sessionId } = req.params;
-    const { result, currency_pair } = req.body;
+    const { result, currency_pair, payout_real } = req.body;
 
     if (!result || (result !== 'ITM' && result !== 'OTM')) {
       return res.status(400).json({
@@ -303,6 +330,22 @@ const registerTrade = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Par de divisas es requerido'
+      });
+    }
+
+    if (payout_real === undefined || payout_real === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payout real es requerido'
+      });
+    }
+
+    // Validar que payout_real esté entre 0 y 1 (0% a 100%)
+    const payoutReal = parseFloat(payout_real);
+    if (isNaN(payoutReal) || payoutReal < 0 || payoutReal > 1) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payout real debe ser un número entre 0 y 1 (0% a 100%)'
       });
     }
 
@@ -323,7 +366,7 @@ const registerTrade = async (req, res) => {
       });
     }
 
-    const tradeResult = await tradingService.registerTrade(sessionId, result, currency_pair);
+    const tradeResult = await tradingService.registerTrade(sessionId, result, currency_pair, payoutReal);
 
     res.json({
       success: true,

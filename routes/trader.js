@@ -23,7 +23,8 @@ const validateCreatePeriod = [
 // Validación para registrar operación
 const validateRegisterTrade = [
   body('result').isIn(['ITM', 'OTM']).withMessage('Resultado debe ser ITM o OTM'),
-  body('currency_pair').trim().isLength({ min: 3, max: 20 }).withMessage('Par de divisas es requerido (ej: EUR/USD)')
+  body('currency_pair').trim().isLength({ min: 3, max: 20 }).withMessage('Par de divisas es requerido (ej: EUR/USD)'),
+  body('payout_real').isFloat({ min: 0, max: 1 }).withMessage('Payout real debe ser un número entre 0 y 1 (0% a 100%)')
 ];
 
 const handleValidationErrors = (req, res, next) => {

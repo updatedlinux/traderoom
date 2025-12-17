@@ -48,6 +48,11 @@ const Trade = sequelize.define('Trade', {
     type: DataTypes.STRING(20),
     allowNull: false,
     comment: 'Par de divisas (ej: EUR/USD, GBP/USD, etc.)'
+  },
+  payout_real: {
+    type: DataTypes.DECIMAL(5, 4),
+    allowNull: true,
+    comment: 'Payout real de la operación (ej: 0.85 = 85%, 0.99 = 99%)'
   }
 }, {
   tableName: 'trades',

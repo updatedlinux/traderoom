@@ -176,25 +176,39 @@ traderoom/
 - Operaciones individuales
 - Registro de stake, resultado (ITM/OTM), PnL
 - Control de pasos de martingala
+- Payout real de la operación (almacenado para auditoría)
 
 ## Lógica de Trading
 
 ### Cálculo de Stake
 
+El stake se calcula **dinámicamente** en el backend basándose en el capital actual de la sesión y el estado de martingala:
+
 1. **Stake Base** (primera operación o después de ITM):
    ```
-   stake = capital_actual * risk_per_trade_pct
+   stake = capital_actual_de_la_sesión * risk_per_trade_pct
    ```
+   Donde `capital_actual_de_la_sesión = starting_capital + daily_pnl`
 
 2. **Martingala Simple** (después de OTM):
    ```
    stake = stake_anterior * 2
    ```
+   Solo se aplica si `martingale_step < martingale_steps` del periodo.
 
-3. **Martingala Exacta** (preparada en código, comentada):
+3. **Martingala Exacta** (preparada en código, comentada para uso futuro):
    ```
    stake = (pérdidas_acumuladas + ganancia_deseada) / profit_pct
    ```
+
+### Cálculo de PnL con Payout Real
+
+El sistema permite registrar el **payout real** de cada operación:
+
+- **ITM**: `pnl = stake * payout_real` (donde `payout_real` es el porcentaje real de la operación, ej: 0.85 = 85%)
+- **OTM**: `pnl = -stake`
+
+El `payout_real` se almacena en cada operación para auditoría y análisis histórico.
 
 ### Stops Automáticos
 
