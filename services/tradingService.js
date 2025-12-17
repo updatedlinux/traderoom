@@ -361,6 +361,7 @@ module.exports = {
   calculateMartingaleStakeSimple,
   calculateMartingaleStakeExact,
   calculatePnL,
+  calculateNextStake,
   getOrCreateDailySession,
   registerTrade,
   closeDailySession

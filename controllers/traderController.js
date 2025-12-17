@@ -273,16 +273,24 @@ const getSession = async (req, res) => {
     // Permitir calcular stake si está in_progress o target_hit
     if (session.status === 'in_progress' || session.status === 'target_hit') {
       if (lastTrade) {
-        const stakeCalc = require('../services/tradingService').calculateNextStake(
-          currentCapital,
-          parseFloat(period.risk_per_trade_pct),
-          parseFloat(lastTrade.stake),
-          lastTrade.martingale_step,
-          period.martingale_steps,
-          lastTrade.result
-        );
-        nextStake = stakeCalc.stake;
-        nextMartingaleStep = stakeCalc.martingaleStep;
+        try {
+          const tradingService = require('../services/tradingService');
+          const stakeCalc = tradingService.calculateNextStake(
+            currentCapital,
+            parseFloat(period.risk_per_trade_pct),
+            parseFloat(lastTrade.stake),
+            lastTrade.martingale_step,
+            period.martingale_steps,
+            lastTrade.result
+          );
+          nextStake = stakeCalc.stake;
+          nextMartingaleStep = stakeCalc.martingaleStep;
+        } catch (error) {
+          console.error('Error calculando nextStake:', error);
+          // Fallback: usar stake base
+          nextStake = currentCapital * parseFloat(period.risk_per_trade_pct);
+          nextMartingaleStep = 0;
+        }
       } else {
         // Primera operación: usar stake base
         nextStake = currentCapital * parseFloat(period.risk_per_trade_pct);

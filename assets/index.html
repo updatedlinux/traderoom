@@ -1518,16 +1518,26 @@
         }
 
         async function loadTrades() {
-            if (!currentSession) return;
+            if (!currentSession) {
+                document.getElementById('tradesContent').innerHTML = '<p>No hay sesión activa.</p>';
+                return;
+            }
 
             try {
                 const response = await fetch(`${API_BASE}/sessions/${currentSession.id}`, { credentials: 'include' });
                 const data = await response.json();
-                if (data.success && data.session.trades) {
-                    renderTrades(data.session.trades);
+                if (data.success) {
+                    if (data.session.trades && data.session.trades.length > 0) {
+                        renderTrades(data.session.trades);
+                    } else {
+                        document.getElementById('tradesContent').innerHTML = '<p>No hay operaciones registradas.</p>';
+                    }
+                } else {
+                    document.getElementById('tradesContent').innerHTML = `<p>Error: ${data.error || 'Error al cargar operaciones'}</p>`;
                 }
             } catch (error) {
-                document.getElementById('tradesContent').innerHTML = '<p>Error al cargar operaciones</p>';
+                console.error('Error al cargar trades:', error);
+                document.getElementById('tradesContent').innerHTML = '<p>Error al cargar operaciones. Por favor, recarga la página.</p>';
             }
         }
 
