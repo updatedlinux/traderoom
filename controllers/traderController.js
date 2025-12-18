@@ -166,7 +166,6 @@ const updatePeriod = async (req, res) => {
     if (nickname !== undefined) {
       const trimmedNickname = nickname ? nickname.trim() : null;
       period.nickname = trimmedNickname === '' ? null : trimmedNickname;
-      console.log('DEBUG updatePeriod - nickname recibido:', nickname, '-> procesado:', period.nickname);
     }
     if (daily_target_pct !== undefined) period.daily_target_pct = parseFloat(daily_target_pct);
     if (profit_pct !== undefined) period.profit_pct = parseFloat(profit_pct);
@@ -176,12 +175,6 @@ const updatePeriod = async (req, res) => {
     if (status !== undefined) period.status = status;
 
     await period.save();
-    
-    console.log('DEBUG updatePeriod - Periodo guardado:', {
-      id: period.id,
-      nickname: period.nickname,
-      nicknameType: typeof period.nickname
-    });
 
     res.json({
       success: true,
@@ -341,15 +334,6 @@ const getSession = async (req, res) => {
         try {
           const tradingService = require('../services/tradingService');
           
-          // Debug: verificar datos del último trade
-          console.log('DEBUG getSession - Último trade:', {
-            trade_number: lastTrade.trade_number,
-            stake: lastTrade.stake,
-            result: lastTrade.result,
-            martingale_step: lastTrade.martingale_step,
-            maxMartingaleSteps: period.martingale_steps,
-            currentCapital: currentCapital
-          });
           
           const stakeCalc = tradingService.calculateNextStake(
             currentCapital,
@@ -359,11 +343,6 @@ const getSession = async (req, res) => {
             period.martingale_steps,
             lastTrade.result
           );
-          
-          console.log('DEBUG getSession - Cálculo de stake:', {
-            calculatedStake: stakeCalc.stake,
-            calculatedMartingaleStep: stakeCalc.martingaleStep
-          });
           
           nextStake = stakeCalc.stake;
           nextMartingaleStep = stakeCalc.martingaleStep;
@@ -383,16 +362,6 @@ const getSession = async (req, res) => {
     // Contar el número real de trades
     const actualTradeCount = trades.length;
 
-    console.log('DEBUG getSession - Enviando respuesta:', {
-      nextStake,
-      nextMartingaleStep,
-      currentCapital,
-      lastTrade: lastTrade ? {
-        stake: lastTrade.stake,
-        result: lastTrade.result,
-        martingale_step: lastTrade.martingale_step
-      } : null
-    });
     
     res.json({
       success: true,

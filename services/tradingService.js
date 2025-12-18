@@ -60,42 +60,20 @@ function calculateNextStake(currentCapital, riskPerTradePct, lastStake, lastMart
   let stake;
   let martingaleStep = 0;
 
-  console.log('DEBUG calculateNextStake - Parámetros:', {
-    currentCapital,
-    riskPerTradePct,
-    lastStake,
-    lastMartingaleStep,
-    maxMartingaleSteps,
-    lastResult
-  });
-
   // Si la última operación fue OTM y no se alcanzó el límite de martingala
   if (lastResult === 'OTM' && lastMartingaleStep < maxMartingaleSteps) {
     // Aplicar martingala: doble del stake anterior
     martingaleStep = lastMartingaleStep + 1;
     stake = lastStake * 2;
-    console.log('DEBUG calculateNextStake - Aplicando martingala:', {
-      martingaleStep,
-      stake,
-      lastStake,
-      multiplicador: 2
-    });
   } else {
     // Primera operación o después de una ITM: usar stake base
     stake = calculateBaseStake(currentCapital, riskPerTradePct);
     martingaleStep = 0;
-    console.log('DEBUG calculateNextStake - Usando stake base:', {
-      stake,
-      reason: lastResult === 'ITM' ? 'Última operación fue ITM' : 
-              lastMartingaleStep >= maxMartingaleSteps ? 'Límite de martingala alcanzado' : 
-              'Primera operación'
-    });
   }
 
   // Asegurar que el stake no exceda el capital disponible
   if (stake > currentCapital) {
     stake = currentCapital;
-    console.log('DEBUG calculateNextStake - Stake ajustado al capital disponible:', stake);
   }
 
   return { stake, martingaleStep };
@@ -246,33 +224,11 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     );
     stake = stakeCalc.stake;
     martingaleStep = stakeCalc.martingaleStep;
-    
-    console.log('DEBUG registerTrade - Cálculo de stake para nueva operación:', {
-      lastTradeNumber: lastTrade.trade_number,
-      lastTradeResult: lastTrade.result,
-      lastTradeMartingaleStep: lastTrade.martingale_step,
-      lastTradeStake: lastTrade.stake,
-      currentCapital,
-      calculatedStake: stake,
-      calculatedMartingaleStep: martingaleStep
-    });
   } else {
     // Primera operación: usar stake base
     stake = calculateBaseStake(currentCapital, parseFloat(period.risk_per_trade_pct));
     martingaleStep = 0;
-    console.log('DEBUG registerTrade - Primera operación, stake base:', stake);
   }
-
-  // El martingaleStep calculado es el paso que se usó para calcular el stake de ESTA operación
-  // Este es el paso correcto para guardar en el trade
-  // Si la última operación fue OTM con paso 0, esta operación se ejecuta con paso 1
-  // Si esta operación es OTM, la próxima será con paso martingaleStep + 1
-  
-  console.log('DEBUG registerTrade - Martingale step para guardar en trade:', {
-    result,
-    martingaleStep,
-    stake
-  });
 
   // Verificar que el stake no exceda el capital disponible
   if (stake > currentCapital) {
@@ -323,40 +279,33 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     tradeNumber = 1;
   }
 
-  // Validar que el stake calculado sea el correcto antes de guardar
-  console.log('DEBUG registerTrade - Validación antes de guardar trade:', {
-    tradeNumber,
-    stake,
-    martingaleStep,
-    result,
-    currentCapital,
-    lastTradeInfo: lastTrade ? {
-      number: lastTrade.trade_number,
-      result: lastTrade.result,
-      stake: lastTrade.stake,
-      martingaleStep: lastTrade.martingale_step
-    } : 'No hay trade anterior'
-  });
-
+  // Calcular balance previo (capital antes del trade)
+  const balancePrevio = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl);
+  
   // Crear el trade
   const trade = await Trade.create({
     session_id: sessionId,
     trade_number: tradeNumber,
-    stake: stake, // Asegurar que se use el stake calculado, no el anterior
+    stake: stake,
     result: result,
     pnl: pnl,
     capital_after: currentCapital,
-    martingale_step: martingaleStep, // Asegurar que se use el martingaleStep calculado
+    martingale_step: martingaleStep,
     currency_pair: currencyPair.trim().toUpperCase(),
     payout_real: payoutReal
   });
   
-  console.log('DEBUG registerTrade - Trade guardado:', {
-    id: trade.id,
-    trade_number: trade.trade_number,
-    stake: trade.stake,
-    martingale_step: trade.martingale_step,
-    result: trade.result
+  // Log informativo del trade registrado
+  const isMartingale = martingaleStep > 0;
+  console.log(`[TRADE] ${result} - Sesión ${sessionId}, Trade #${tradeNumber}`, {
+    par: currencyPair.trim().toUpperCase(),
+    stake: `$${parseFloat(stake).toFixed(2)}`,
+    payout: `${(payoutReal * 100).toFixed(2)}%`,
+    pnl: `$${parseFloat(pnl).toFixed(2)}`,
+    balancePrevio: `$${balancePrevio.toFixed(2)}`,
+    balancePosterior: `$${currentCapital.toFixed(2)}`,
+    martingala: isMartingale ? `Sí (Paso ${martingaleStep}/${period.martingale_steps})` : 'No',
+    capitalVariacion: `${pnl >= 0 ? '+' : ''}$${parseFloat(pnl).toFixed(2)}`
   });
 
   // Actualizar sesión
@@ -390,13 +339,6 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     nextStake = nextStakeCalc.stake;
     nextMartingaleStep = nextStakeCalc.martingaleStep;
     
-    console.log('DEBUG registerTrade - Cálculo de nextStake después de registrar trade:', {
-      tradeStake: stake,
-      tradeMartingaleStep: martingaleStep,
-      tradeResult: result,
-      nextStake,
-      nextMartingaleStep
-    });
   }
 
   return {

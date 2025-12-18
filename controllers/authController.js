@@ -43,21 +43,6 @@ const login = async (req, res) => {
     
     // Marcar la sesión como modificada para forzar guardado
     req.session.touch();
-    
-    console.log('DEBUG login - Sesión configurada:', {
-      sessionId: req.sessionID,
-      userId: req.session.userId,
-      username: req.session.username,
-      role: req.session.role,
-      roleFromDB: user.role
-    });
-
-    // Guardar la sesión explícitamente y luego responder
-    req.session.save((err) => {
-      if (err) {
-        console.error('DEBUG login - Error al guardar sesión:', err);
-      }
-    });
 
     res.json({
       success: true,
@@ -65,8 +50,7 @@ const login = async (req, res) => {
         id: user.id,
         username: user.username,
         role: user.role
-      },
-      sessionId: req.sessionID // Para debug
+      }
     });
   } catch (error) {
     console.error('Error en login:', error);

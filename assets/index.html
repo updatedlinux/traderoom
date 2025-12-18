@@ -1900,33 +1900,20 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    console.log('Frontend registerTrade - Datos recibidos del backend:', {
-                        nextStake: data.nextStake,
-                        nextMartingaleStep: data.nextMartingaleStep,
-                        currentCapital: data.currentCapital,
-                        sessionStatus: data.session.status
-                    });
-                    
                     // Actualizar currentSession con los datos del backend
-                    // IMPORTANTE: Usar el nextStake del backend que ya incluye el cálculo de martingala
                     currentSession = {
                         ...currentSession,
                         ...data.session,
                         daily_pnl: data.currentCapital - parseFloat(currentSession.starting_capital),
-                        num_trades: data.session.num_trades, // Usar el valor del backend
+                        num_trades: data.session.num_trades,
                         status: data.session.status || currentSession.status,
-                        nextStake: data.nextStake, // Usar el nextStake calculado por el backend
+                        nextStake: data.nextStake,
                         nextMartingaleStep: data.nextMartingaleStep,
                         currentCapital: data.currentCapital,
                         dailyTarget: data.dailyTarget,
                         maxDailyLoss: data.maxDailyLoss,
-                        isTargetHit: data.isTargetHit // Para mostrar advertencia
+                        isTargetHit: data.isTargetHit
                     };
-                    
-                    console.log('Frontend registerTrade - currentSession actualizado:', {
-                        nextStake: currentSession.nextStake,
-                        currentCapital: currentSession.currentCapital
-                    });
                     
                     // Limpiar selector
                     if (select) select.value = '';

@@ -36,34 +36,6 @@ app.use(session({
   proxy: true // Confiar en el proxy
 }));
 
-// Middleware para debug de sesiones - DEBE ir DESPUÉS de session()
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api/')) {
-    // Parsear cookies manualmente para debug
-    const cookies = {};
-    if (req.headers.cookie) {
-      req.headers.cookie.split(';').forEach(cookie => {
-        const parts = cookie.trim().split('=');
-        if (parts.length === 2) {
-          cookies[parts[0]] = parts[1];
-        }
-      });
-    }
-    
-    console.log('DEBUG Session Middleware - Path:', req.path, {
-      hasSession: !!req.session,
-      sessionId: req.session?.id,
-      sessionID: req.sessionID, // ID de la sesión actual
-      userId: req.session?.userId,
-      username: req.session?.username,
-      role: req.session?.role,
-      cookieHeader: req.headers.cookie,
-      parsedCookies: cookies,
-      sessionStore: req.sessionStore ? 'exists' : 'missing'
-    });
-  }
-  next();
-});
 
 // Middlewares - CORS completamente abierto
 app.use(cors({

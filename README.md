@@ -7,10 +7,12 @@ Sistema de gestión de riesgo para trading de opciones binarias y scalping. Trad
 TradeRoom es una aplicación web que facilita la gestión de riesgo en operaciones de trading, inspirada en un sistema de gestión basado en Excel. La aplicación permite:
 
 - **Gestión de usuarios**: Administradores pueden crear y gestionar usuarios traders
-- **Periodos de trading**: Configuración de periodos con parámetros personalizables
+- **Periodos de trading**: Configuración de periodos con parámetros personalizables y sobrenombres para identificación
 - **Sesiones diarias**: Control de operaciones diarias con stops automáticos
 - **Registro de operaciones**: Registro de operaciones ITM/OTM con cálculo automático de stakes y martingala
 - **Control de riesgo**: Implementación de martingala limitada y stops de pérdida/ganancia
+- **Proyecciones y análisis**: Visualización de PnL proyectado y comparación con resultados reales
+- **Estadísticas y reportes**: Generación de reportes Excel y visualización de estadísticas para traders y administradores
 
 ## Requisitos Previos
 
@@ -50,6 +52,11 @@ PORT_BACKEND=3000
 PORT_FRONTEND=80
 ```
 
+**Nota**: Puedes generar un `SESSION_SECRET` seguro ejecutando:
+```bash
+npm run generate:secret
+```
+
 ### 2. Instalación de Dependencias
 
 ```bash
@@ -65,10 +72,23 @@ npm run init:db
 ```
 
 Este comando:
+- Crea la base de datos si no existe
 - Crea todas las tablas necesarias en MariaDB
 - Crea el usuario administrador inicial usando las variables `ADMIN_USER` y `ADMIN_PASS` del archivo `.env`
 
 **Importante**: Asegúrate de que las variables `ADMIN_USER` y `ADMIN_PASS` estén configuradas en `.env` antes de ejecutar este comando.
+
+### 4. Scripts Adicionales
+
+Si necesitas agregar columnas adicionales a tablas existentes:
+
+```bash
+# Agregar columna payout_real a la tabla trades (si ya existe la tabla)
+npm run add:payout-column
+
+# Agregar columna nickname a la tabla trading_periods (si ya existe la tabla)
+npm run add:nickname-column
+```
 
 ## Ejecución
 
@@ -118,6 +138,14 @@ El frontend detecta automáticamente si está siendo servido desde el dominio de
 - Si el dominio contiene `traderoom.soyjonnymelendez.net`, usa `https://backtrade.soyjonnymelendez.net/api`
 - En desarrollo local, usa `/api`
 
+### Configuración de Sesiones
+
+El sistema está configurado para compartir sesiones entre subdominios mediante cookies con:
+- `domain: '.soyjonnymelendez.net'` (compartida entre subdominios)
+- `secure: true` (requiere HTTPS)
+- `sameSite: 'none'` (permite cross-site)
+- `proxy: true` (confía en el proxy reverso)
+
 ## Estructura del Proyecto
 
 ```
@@ -133,7 +161,8 @@ traderoom/
 ├── controllers/        # Controladores
 │   ├── authController.js
 │   ├── adminController.js
-│   └── traderController.js
+│   ├── traderController.js
+│   └── statisticsController.js
 ├── middlewares/        # Middlewares
 │   └── auth.js        # Autenticación y autorización
 ├── models/            # Modelos de Sequelize
@@ -145,9 +174,13 @@ traderoom/
 ├── routes/            # Rutas
 │   ├── auth.js
 │   ├── admin.js
-│   └── trader.js
+│   ├── trader.js
+│   └── statistics.js
 ├── scripts/           # Scripts de utilidad
-│   └── initDb.js     # Inicialización de base de datos
+│   ├── initDb.js     # Inicialización de base de datos
+│   ├── generateSecret.js  # Generador de secretos JWT
+│   ├── addPayoutRealColumn.js  # Migración: agregar columna payout_real
+│   └── addNicknameColumn.js    # Migración: agregar columna nickname
 ├── services/         # Servicios de negocio
 │   └── tradingService.js  # Lógica de trading
 ├── server.js         # Servidor principal
@@ -159,65 +192,170 @@ traderoom/
 ## Modelo de Datos
 
 ### User
+- **Campos**: `id`, `username` (UNIQUE), `password_hash`, `role` ('admin' | 'trader'), `is_active`, `created_at`, `updated_at`
 - Usuarios del sistema (admin y trader)
 - Autenticación con bcrypt
+- Los passwords se hashean automáticamente antes de guardar
 
 ### TradingPeriod
+- **Campos**: `id`, `user_id` (FK), `start_date`, `end_date`, `initial_capital`, `current_capital`, `daily_target_pct`, `profit_pct`, `risk_per_trade_pct`, `martingale_steps`, `max_daily_loss_pct`, `status` ('active' | 'completed' | 'paused'), `nickname`, `created_at`, `updated_at`
 - Periodos de trading con parámetros configurables
-- Capital inicial y actual
-- Porcentajes de meta, riesgo, payout, etc.
+- Capital inicial y actual (se actualiza al finalizar sesiones)
+- Porcentajes de meta diaria, riesgo por operación, payout esperado, pérdida máxima diaria
+- **nickname**: Campo opcional para identificar periodos fácilmente (ej: "IQOption", "Quotex", "Cuenta Demo")
+- Relación 1:N con DailySession (eliminación en cascada)
 
 ### DailySession
+- **Campos**: `id`, `period_id` (FK), `date`, `starting_capital`, `ending_capital`, `daily_pnl`, `num_trades`, `status` ('in_progress' | 'target_hit' | 'stopped_loss' | 'closed'), `created_at`, `updated_at`
 - Sesiones diarias de trading
 - Control de PnL diario y número de operaciones
-- Estados: in_progress, target_hit, stopped_loss, closed
+- Estados: `in_progress` (activa), `target_hit` (meta alcanzada), `stopped_loss` (stop loss activado), `closed` (cerrada manualmente)
+- Relación 1:N con Trade (eliminación en cascada)
 
 ### Trade
+- **Campos**: `id`, `session_id` (FK), `trade_number`, `stake`, `result` ('ITM' | 'OTM'), `pnl`, `capital_after`, `martingale_step`, `currency_pair`, `payout_real`, `created_at`
 - Operaciones individuales
 - Registro de stake, resultado (ITM/OTM), PnL
-- Control de pasos de martingala
-- Payout real de la operación (almacenado para auditoría)
+- Control de pasos de martingala (0 = sin martingala, 1+ = paso de martingala)
+- **currency_pair**: Par de divisas de la operación (ej: "EUR/USD", "GBP/USD")
+- **payout_real**: Payout real de la operación (almacenado para auditoría y análisis histórico)
 
 ## Lógica de Trading
+
+### Flujo General
+
+1. **Creación de Periodo**: El trader crea un periodo con fechas, capital inicial y parámetros de riesgo
+2. **Inicio de Sesión Diaria**: Cada día, el trader inicia una sesión que toma el capital actual del periodo
+3. **Registro de Operaciones**: El trader registra operaciones ITM/OTM, el sistema calcula automáticamente stakes y PnL
+4. **Stops Automáticos**: El sistema detiene la sesión cuando se alcanza la meta diaria o el stop loss
+5. **Cierre de Sesión**: Al finalizar, el capital del periodo se actualiza con el capital final de la sesión
 
 ### Cálculo de Stake
 
 El stake se calcula **dinámicamente** en el backend basándose en el capital actual de la sesión y el estado de martingala:
 
-1. **Stake Base** (primera operación o después de ITM):
-   ```
-   stake = capital_actual_de_la_sesión * risk_per_trade_pct
-   ```
-   Donde `capital_actual_de_la_sesión = starting_capital + daily_pnl`
+#### 1. Stake Base (primera operación o después de ITM):
+```
+stake = capital_actual_de_la_sesión * risk_per_trade_pct
+```
+Donde `capital_actual_de_la_sesión = starting_capital + daily_pnl`
 
-2. **Martingala Simple** (después de OTM):
-   ```
-   stake = stake_anterior * 2
-   ```
-   Solo se aplica si `martingale_step < martingale_steps` del periodo.
+#### 2. Martingala Simple (después de OTM):
+```
+stake = stake_anterior * 2
+```
+Solo se aplica si `martingale_step < martingale_steps` del periodo.
 
-3. **Martingala Exacta** (preparada en código, comentada para uso futuro):
-   ```
-   stake = (pérdidas_acumuladas + ganancia_deseada) / profit_pct
-   ```
+**Ejemplo**:
+- Operación 1: OTM con stake $10 → Operación 2: stake $20 (martingala paso 1)
+- Operación 2: OTM con stake $20 → Operación 3: stake $40 (martingala paso 2)
+- Operación 3: ITM con stake $40 → Operación 4: stake base (martingala reseteada)
+
+#### 3. Martingala Exacta (preparada en código, comentada para uso futuro):
+```
+stake = (pérdidas_acumuladas + ganancia_deseada) / profit_pct
+```
 
 ### Cálculo de PnL con Payout Real
 
-El sistema permite registrar el **payout real** de cada operación:
+El sistema permite registrar el **payout real** de cada operación, permitiendo análisis más precisos:
 
 - **ITM**: `pnl = stake * payout_real` (donde `payout_real` es el porcentaje real de la operación, ej: 0.85 = 85%)
 - **OTM**: `pnl = -stake`
 
-El `payout_real` se almacena en cada operación para auditoría y análisis histórico.
+El `payout_real` se almacena en cada operación para auditoría y análisis histórico. El frontend permite editar el payout antes de registrar la operación, con un valor por defecto basado en `profit_pct` del periodo.
 
 ### Stops Automáticos
 
-- **Target Hit**: Cuando `daily_pnl >= daily_target`
-- **Stop Loss**: Cuando `daily_pnl <= -max_daily_loss`
+El sistema implementa dos tipos de stops automáticos:
+
+#### 1. Target Hit (Meta Alcanzada)
+- Se activa cuando `daily_pnl >= daily_target`
+- `daily_target = starting_capital * daily_target_pct`
+- Estado de sesión: `target_hit`
+- **Comportamiento especial**: Si la meta se alcanza, el sistema permite continuar operando (con advertencia), pero no permite operar si el objetivo no se cumplió (OTM)
+
+#### 2. Stop Loss (Pérdida Máxima)
+- Se activa cuando `daily_pnl <= -max_daily_loss`
+- `max_daily_loss = starting_capital * max_daily_loss_pct`
+- Estado de sesión: `stopped_loss`
+- **Excepción de Martingala**: Si la operación está en martingala, se permite continuar hasta el último paso de martingala, incluso si temporalmente se excede el `max_daily_loss_pct`. Esto permite completar la estrategia de martingala antes de activar el stop loss.
 
 ### Actualización de Capital
 
-- Al finalizar una sesión (target hit, stop loss o cierre manual), el capital del periodo se actualiza con el capital final de la sesión.
+- Al finalizar una sesión (target hit, stop loss o cierre manual), el capital del periodo se actualiza con el capital final de la sesión
+- El capital se propaga día a día: `period.current_capital` → `session.starting_capital` (día siguiente)
+
+### Manejo de Fechas y Zona Horaria
+
+- El sistema está configurado para trabajar en **GMT-5 (Bogotá, Colombia)**
+- Las fechas se almacenan como `DATEONLY` (YYYY-MM-DD) sin componente de tiempo
+- El backend usa `timezone: '-05:00'` en la configuración de Sequelize
+- El frontend formatea fechas usando `America/Bogota` timezone
+
+## Proyecciones y Análisis de PnL
+
+### PnL Proyectado
+
+El sistema permite visualizar una **proyección de PnL** para cualquier periodo, asumiendo que se cumplen las metas diarias:
+
+- **Cálculo**: Para cada día del periodo, se proyecta:
+  - Capital inicial del día = Capital final del día anterior
+  - Meta diaria = Capital inicial × `daily_target_pct`
+  - Capital final = Capital inicial + Meta diaria
+- **Visualización**: Tabla con día, fecha, capital inicial proyectado, meta diaria proyectada y capital final proyectado
+- **Uso**: Permite visualizar el crecimiento esperado del capital durante todo el periodo
+
+### PnL Real vs Proyectado
+
+El sistema permite comparar el **PnL real** (de sesiones registradas) contra el **PnL proyectado**:
+
+- **Datos Reales**: Se obtienen de las sesiones diarias registradas en la base de datos
+- **Comparación**: Para cada día del periodo:
+  - Si hay sesión real: muestra PnL real, capital real y diferencia con lo proyectado
+  - Si no hay sesión: muestra "N/A" o valores nulos
+- **Visualización**:
+  - Tabla comparativa día por día
+  - Gráfico de líneas (Chart.js) mostrando evolución del PnL acumulado (proyectado vs real)
+  - Métricas: Capital final proyectado vs real, PnL total proyectado vs real, diferencia
+- **Uso**: Permite analizar el desempeño real contra las expectativas y ajustar estrategias
+
+## Logs del Sistema
+
+### Logs de Operaciones (Trades)
+
+Cada vez que se registra una operación (ITM u OTM), el sistema genera un log informativo con la siguiente estructura:
+
+```
+[TRADE] ITM/OTM - Sesión {sessionId}, Trade #{tradeNumber}
+{
+  par: "EUR/USD",
+  stake: "$12.68",
+  payout: "80.00%",
+  pnl: "$10.14",
+  balancePrevio: "$200.00",
+  balancePosterior: "$210.14",
+  martingala: "Sí (Paso 1/3)" o "No",
+  capitalVariacion: "+$10.14"
+}
+```
+
+**Información incluida**:
+- **Resultado**: ITM o OTM
+- **Par de divisas**: Par operado
+- **Stake**: Monto de la operación
+- **Payout**: Payout real utilizado
+- **PnL**: Ganancia o pérdida de la operación
+- **Balance Previo**: Capital antes de la operación
+- **Balance Posterior**: Capital después de la operación
+- **Martingala**: Indica si la operación fue en martingala y en qué paso (ej: "Sí (Paso 1/3)") o "No"
+- **Variación de Capital**: Cambio en el capital con signo (+ o -)
+
+Estos logs son útiles para:
+- Auditoría de operaciones
+- Análisis de desempeño
+- Debugging de problemas
+- Seguimiento de estrategias de martingala
 
 ## API Endpoints
 
@@ -229,36 +367,79 @@ El `payout_real` se almacena en cada operación para auditoría y análisis hist
 ### Admin (requiere rol admin)
 - `GET /api/admin/users` - Listar usuarios
 - `POST /api/admin/users` - Crear usuario
-- `PATCH /api/admin/users/:id` - Actualizar usuario
+- `PATCH /api/admin/users/:id` - Actualizar usuario (activar/desactivar, cambiar password)
 
 ### Trader (requiere rol trader)
-- `GET /api/periods` - Listar periodos
+- `GET /api/periods` - Listar periodos del usuario
 - `POST /api/periods` - Crear periodo
-- `GET /api/periods/:id` - Obtener periodo
+- `GET /api/periods/:id` - Obtener periodo (con sesiones)
+- `PATCH /api/periods/:id` - Actualizar periodo
+- `DELETE /api/periods/:id` - Eliminar periodo (elimina en cascada sesiones y trades)
 - `POST /api/periods/:id/sessions` - Crear/iniciar sesión diaria
-- `GET /api/sessions/:id` - Obtener sesión
+- `GET /api/sessions/:id` - Obtener sesión (con trades y cálculo de próximo stake)
 - `POST /api/sessions/:id/trades` - Registrar operación
-- `POST /api/sessions/:id/close` - Cerrar sesión
+- `POST /api/sessions/:id/close` - Cerrar sesión manualmente
+
+### Estadísticas
+- `GET /api/statistics/trader` - Estadísticas del trader (sesiones cerradas, resumen global)
+- `GET /api/statistics/trader/sessions/:id/excel` - Descargar reporte Excel de una sesión
+- `GET /api/statistics/admin` - Estadísticas globales para admin (usuarios, periodos, sesiones, trades)
+- `GET /api/statistics/admin/users/:userId` - Detalles de un usuario específico (periodos, sesiones, trades)
 
 ## Roles y Permisos
 
 ### Admin
 - Gestión de usuarios (crear, activar/desactivar, cambiar contraseñas)
-- No puede crear periodos ni operar
+- Visualización de estadísticas globales y por usuario
+- **No puede** crear periodos ni operar
 
 ### Trader
-- Crear y gestionar periodos de trading
+- Crear y gestionar periodos de trading (con nickname opcional)
+- Editar periodos existentes
+- Eliminar periodos (con eliminación en cascada de sesiones y trades)
 - Crear sesiones diarias
-- Registrar operaciones
-- Ver estadísticas
+- Registrar operaciones con payout real editable
+- Ver estadísticas propias (sesiones cerradas, resumen)
+- Descargar reportes Excel de sesiones
+- Visualizar proyecciones de PnL
+- Comparar PnL real vs proyectado con gráficos
+
+## Reportes Excel
+
+### Generación de Reportes
+
+Los traders pueden descargar reportes Excel de sus sesiones cerradas desde el módulo de Estadísticas.
+
+### Estructura del Reporte
+
+Cada reporte Excel contiene **3 hojas**:
+
+1. **Información**:
+   - Datos del periodo (ID, sobrenombre, rango de fechas, parámetros)
+   - Datos de la sesión (fecha, capital inicial/final, PnL, número de operaciones, estado)
+   - Resumen de métricas
+
+2. **Operaciones**:
+   - Tabla detallada de todas las operaciones
+   - Columnas: Número, Hora, Par, Stake, Resultado, Payout Real, PnL, Capital Después, Paso de Martingala
+   - Formato: Colores para ITM (verde) y OTM (rojo), números formateados
+
+3. **Datos para Gráficas**:
+   - Datos estructurados para crear gráficas manualmente en Excel
+   - Incluye instrucciones para el usuario
+   - Datos de evolución de capital y PnL acumulado
+
+**Nota**: `exceljs` no soporta creación programática de gráficas, por lo que se proporcionan los datos estructurados para que el usuario cree las gráficas manualmente en Excel.
 
 ## Seguridad
 
-- Contraseñas hasheadas con bcrypt
-- Sesiones de Express con cookies httpOnly
-- Middleware de autenticación y autorización
+- Contraseñas hasheadas con bcrypt (10 rounds)
+- Sesiones de Express con cookies httpOnly, secure y sameSite configuradas
+- Middleware de autenticación y autorización por roles
 - Validación de inputs con express-validator
 - Protección CSRF mediante sesiones
+- CORS configurado para permitir credenciales entre subdominios
+- Normalización de roles (trim y lowercase) para evitar problemas de comparación
 
 ## Desarrollo
 
@@ -270,6 +451,14 @@ El `payout_real` se almacena en cada operación para auditoría y análisis hist
 4. Agregar middleware de autenticación/autorización si es necesario
 5. Actualizar el frontend en `assets/index.html`
 
+### Scripts de Migración
+
+Si necesitas agregar columnas a tablas existentes, crea un script en `scripts/` siguiendo el patrón de:
+- `addPayoutRealColumn.js`: Agrega columna `payout_real` a `trades`
+- `addNicknameColumn.js`: Agrega columna `nickname` a `trading_periods`
+
+Luego agrega el script a `package.json` y ejecútalo con `npm run nombre-del-script`.
+
 ### Testing
 
 Para probar la aplicación:
@@ -280,13 +469,38 @@ Para probar la aplicación:
 4. Crea usuarios traders desde el panel de administración
 5. Inicia sesión como trader y crea un periodo de trading
 6. Crea una sesión diaria y registra operaciones
+7. Prueba las proyecciones de PnL y la comparación real vs proyectado
+8. Descarga reportes Excel desde el módulo de Estadísticas
+
+## Características Destacadas
+
+### Selector de Periodos en Sesión Actual
+- Los traders pueden seleccionar fácilmente entre sus periodos activos desde la sección "Sesión Actual"
+- El selector muestra todos los periodos activos del usuario
+- Al seleccionar un periodo, se carga automáticamente la sesión del día actual o se permite crear una nueva
+
+### Eliminación en Cascada
+- Al eliminar un periodo, se eliminan automáticamente todas sus sesiones diarias y todas las operaciones asociadas
+- Esto mantiene la integridad de los datos y evita registros huérfanos
+
+### Payout Real Editable
+- El frontend permite editar el payout real antes de registrar cada operación
+- Valor por defecto basado en `profit_pct` del periodo
+- Permite registrar operaciones con payouts diferentes al esperado (ej: 85% en lugar de 80%)
+
+### Logs Informativos
+- Cada operación genera un log estructurado con toda la información relevante
+- Facilita auditoría y análisis de desempeño
+- Muestra claramente si una operación fue en martingala y en qué paso
 
 ## Notas
 
-- El logo debe estar en `assets/img/logo.png` o `assets/logo.png`
-- El loader usa el logo para la animación
+- El logo principal está en `assets/logo-traderoom.png`
+- El icono del loader está en `assets/icon-traderoom.png`
 - Los favicons están en `assets/favicon/`
 - El frontend está completamente integrado en un solo archivo HTML para simplicidad
+- El sistema está optimizado para trabajar en zona horaria GMT-5 (Bogotá)
+- Las fechas se manejan como `DATEONLY` (sin componente de tiempo) para evitar problemas de timezone
 
 ## Licencia
 
@@ -295,4 +509,3 @@ ISC
 ## Soporte
 
 Para problemas o preguntas, contacta al administrador del sistema.
-
