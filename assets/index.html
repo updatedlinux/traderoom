@@ -1005,6 +1005,49 @@
         </div>
     </div>
 
+    <!-- Close Session Confirmation Modal -->
+    <div id="closeSessionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-exclamation-triangle"></i> Confirmar Cierre de Sesión</h2>
+                <span class="close" onclick="closeModal('closeSession')">&times;</span>
+            </div>
+            <div style="padding: 20px 0;">
+                <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                    <p style="font-size: 16px; margin: 0; color: #856404;">
+                        <i class="fas fa-info-circle"></i> <strong>Advertencia Importante</strong>
+                    </p>
+                </div>
+                <p style="font-size: 16px; margin-bottom: 20px;">
+                    ¿Estás seguro de que deseas cerrar la sesión del día <strong id="closeSessionDate"></strong>?
+                </p>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="color: #dc3545; font-weight: bold; margin-bottom: 15px;">
+                        <i class="fas fa-warning"></i> Al cerrar esta sesión:
+                    </p>
+                    <ul style="margin-left: 20px; margin-bottom: 0;">
+                        <li>No podrás registrar más operaciones en esta sesión</li>
+                        <li>No podrás reabrir esta sesión hasta el día siguiente</li>
+                        <li>El capital actual se guardará y será el capital inicial del próximo día</li>
+                        <li>La sesión quedará marcada como "closed" (cerrada)</li>
+                    </ul>
+                </div>
+                <p style="color: #dc3545; font-weight: bold; margin-bottom: 20px;">
+                    Esta acción no se puede deshacer. Solo podrás crear una nueva sesión mañana.
+                </p>
+                <div style="display: flex; gap: 10px; margin-top: 25px;">
+                    <button class="btn" onclick="closeModal('closeSession')" style="flex: 1; background: #6c757d;">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button class="btn btn-danger" onclick="confirmCloseSession()" style="flex: 1;">
+                        <i class="fas fa-lock"></i> Cerrar Sesión Definitivamente
+                    </button>
+                </div>
+            </div>
+            <div id="closeSessionError" class="error-message" style="display: none; margin-top: 15px;"></div>
+        </div>
+    </div>
+
     <!-- PnL Proyectado Modal -->
     <div id="projectedPnLModal" class="modal">
         <div class="modal-content" style="max-width: 90%; max-height: 90vh; overflow-y: auto;">
@@ -1637,6 +1680,7 @@
             // Permitir operar si está in_progress o target_hit (con advertencia)
             // NO permitir si está stopped_loss o closed
             const canTrade = session.status === 'in_progress' || session.status === 'target_hit';
+            const canClose = session.status === 'in_progress' || session.status === 'target_hit' || session.status === 'stopped_loss';
             const showTargetHitWarning = session.status === 'target_hit';
             // Usar currentCapital si está disponible, sino calcularlo
             const capital = session.currentCapital || (parseFloat(session.starting_capital) + parseFloat(session.daily_pnl));
@@ -1698,6 +1742,14 @@
                     </div>
                 ` : ''}
 
+                ${canClose ? `
+                    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                        <button class="btn" onclick="openCloseSessionModal()" style="background: #6c757d; width: 100%; max-width: 300px;">
+                            <i class="fas fa-lock"></i> Cerrar Sesión Diaria
+                        </button>
+                        <small style="color: #666; display: block; margin-top: 8px;">Cierra esta sesión manualmente. No podrás reabrirla hasta el día siguiente.</small>
+                    </div>
+                ` : ''}
                 ${canTrade ? `
                     <div class="form-group" style="margin: 20px 0;">
                         <label><i class="fas fa-exchange-alt"></i> Par de Divisas</label>
@@ -1738,6 +1790,14 @@
                         <button class="btn trade-result-btn otm" onclick="registerTrade('OTM')">
                             <i class="fas fa-times-circle"></i> OTM (Pérdida)
                         </button>
+                    </div>
+                ` : session.status === 'closed' ? `
+                    <div class="card" style="background: #d1ecf1; border-left: 4px solid #0c5460; margin: 20px 0;">
+                        <h3 style="color: #0c5460; margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Sesión Cerrada</h3>
+                        <p style="color: #0c5460; margin: 0;">
+                            Esta sesión ha sido cerrada manualmente. No se pueden registrar más operaciones. 
+                            El capital actual ($${capital.toFixed(2)}) se ha guardado y será el capital inicial del próximo día.
+                        </p>
                     </div>
                 ` : `
                     <p class="error-message">No se pueden registrar más operaciones. Estado: ${session.status}</p>
@@ -2395,6 +2455,65 @@
             document.getElementById('deletePeriodName').textContent = periodName;
             document.getElementById('deletePeriodError').style.display = 'none';
             document.getElementById('deletePeriodModal').style.display = 'block';
+        }
+
+        function openCloseSessionModal() {
+            if (!currentSession) {
+                alert('No hay sesión activa para cerrar');
+                return;
+            }
+
+            // Verificar que la sesión no esté ya cerrada
+            if (currentSession.status === 'closed') {
+                alert('Esta sesión ya está cerrada');
+                return;
+            }
+
+            // Mostrar la fecha de la sesión en el modal
+            const sessionDate = formatDateForDisplay(currentSession.date);
+            document.getElementById('closeSessionDate').textContent = sessionDate;
+            document.getElementById('closeSessionError').style.display = 'none';
+            document.getElementById('closeSessionModal').style.display = 'block';
+        }
+
+        async function confirmCloseSession() {
+            if (!currentSession) {
+                alert('No hay sesión activa para cerrar');
+                return;
+            }
+
+            const errorDiv = document.getElementById('closeSessionError');
+            errorDiv.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/sessions/${currentSession.id}/close`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    closeModal('closeSession');
+                    alert('Sesión cerrada exitosamente. El capital actual se ha guardado y será el capital inicial del próximo día.');
+                    
+                    // Actualizar la sesión actual con el estado cerrado
+                    currentSession = {
+                        ...currentSession,
+                        status: 'closed',
+                        ending_capital: data.session.ending_capital || (parseFloat(currentSession.starting_capital) + parseFloat(currentSession.daily_pnl))
+                    };
+                    
+                    // Re-renderizar la sesión para mostrar el estado cerrado
+                    renderCurrentSession();
+                } else {
+                    errorDiv.textContent = data.error || 'Error al cerrar sesión';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error al cerrar sesión:', error);
+                errorDiv.textContent = 'Error de conexión. Por favor, intenta nuevamente.';
+                errorDiv.style.display = 'block';
+            }
         }
 
         async function confirmDeletePeriod() {
