@@ -1001,6 +1001,32 @@
         </div>
     </div>
 
+    <!-- PnL Proyectado Modal -->
+    <div id="projectedPnLModal" class="modal">
+        <div class="modal-content" style="max-width: 90%; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2><i class="fas fa-chart-line"></i> PnL Proyectado</h2>
+                <span class="close" onclick="closeModal('projectedPnL')">&times;</span>
+            </div>
+            <div id="projectedPnLContent" style="padding: 20px 0;">
+                <p>Cargando proyección...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PnL Real Modal -->
+    <div id="realPnLModal" class="modal">
+        <div class="modal-content" style="max-width: 90%; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2><i class="fas fa-chart-bar"></i> PnL Real vs Proyectado</h2>
+                <span class="close" onclick="closeModal('realPnL')">&times;</span>
+            </div>
+            <div id="realPnLContent" style="padding: 20px 0;">
+                <p>Cargando datos...</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Configuración
         const API_BASE = window.location.origin.includes('traderoom.soyjonnymelendez.net') 
@@ -1369,6 +1395,16 @@
                         <div class="stat-row">
                             <span class="stat-label">Estado:</span>
                             <span class="status-badge ${period.status}">${period.status}</span>
+                        </div>
+                        <div class="stat-row" style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #e9ecef;">
+                            <div style="display: flex; gap: 10px; width: 100%;">
+                                <button class="btn btn-small" onclick="event.stopPropagation(); openProjectedPnLModal(${period.id})" style="flex: 1;">
+                                    <i class="fas fa-chart-line"></i> PnL Proyectado
+                                </button>
+                                <button class="btn btn-small" onclick="event.stopPropagation(); openRealPnLModal(${period.id})" style="flex: 1;">
+                                    <i class="fas fa-chart-bar"></i> PnL Real
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2408,6 +2444,341 @@
                 errorDiv.textContent = 'Error de conexión';
                 errorDiv.style.display = 'block';
             }
+        }
+
+        // Funciones para PnL Proyectado y Real
+        async function openProjectedPnLModal(periodId) {
+            document.getElementById('projectedPnLModal').style.display = 'block';
+            document.getElementById('projectedPnLContent').innerHTML = '<p>Cargando proyección...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/periods/${periodId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    renderProjectedPnL(data.period);
+                } else {
+                    document.getElementById('projectedPnLContent').innerHTML = '<p class="error-message">Error al cargar el periodo</p>';
+                }
+            } catch (error) {
+                document.getElementById('projectedPnLContent').innerHTML = '<p class="error-message">Error de conexión</p>';
+            }
+        }
+
+        function renderProjectedPnL(period) {
+            const startDate = new Date(period.start_date + 'T00:00:00');
+            const endDate = new Date(period.end_date + 'T00:00:00');
+            const dailyTargetPct = parseFloat(period.daily_target_pct);
+            
+            let currentCapital = parseFloat(period.initial_capital);
+            const projection = [];
+            let totalProjectedPnL = 0;
+            
+            const currentDate = new Date(startDate);
+            let dayNumber = 1;
+            
+            while (currentDate <= endDate) {
+                const dailyTarget = currentCapital * dailyTargetPct;
+                const projectedCapital = currentCapital + dailyTarget;
+                totalProjectedPnL += dailyTarget;
+                
+                projection.push({
+                    day: dayNumber,
+                    date: new Date(currentDate),
+                    capital: currentCapital,
+                    dailyTarget: dailyTarget,
+                    projectedCapital: projectedCapital
+                });
+                
+                currentCapital = projectedCapital;
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayNumber++;
+            }
+            
+            const html = `
+                <div class="card">
+                    <h3>Proyección de PnL - Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''}</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Inicial:</span>
+                        <span class="stat-value">$${parseFloat(period.initial_capital).toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Final Proyectado:</span>
+                        <span class="stat-value">$${currentCapital.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">PnL Total Proyectado:</span>
+                        <span class="stat-value positive">$${totalProjectedPnL.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Días del Periodo:</span>
+                        <span class="stat-value">${projection.length}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Meta Diaria (%):</span>
+                        <span class="stat-value">${(dailyTargetPct * 100).toFixed(2)}%</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Día</th>
+                                <th>Fecha</th>
+                                <th>Capital Inicial</th>
+                                <th>Meta Diaria</th>
+                                <th>Capital Final Proyectado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${projection.map(proj => `
+                                <tr>
+                                    <td>${proj.day}</td>
+                                    <td>${formatDateForDisplay(proj.date.toISOString().split('T')[0])}</td>
+                                    <td>$${proj.capital.toFixed(2)}</td>
+                                    <td class="positive">$${proj.dailyTarget.toFixed(2)}</td>
+                                    <td>$${proj.projectedCapital.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('projectedPnLContent').innerHTML = html;
+        }
+
+        async function openRealPnLModal(periodId) {
+            document.getElementById('realPnLModal').style.display = 'block';
+            document.getElementById('realPnLContent').innerHTML = '<p>Cargando datos...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/periods/${periodId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success) {
+                    renderRealPnL(data.period);
+                } else {
+                    document.getElementById('realPnLContent').innerHTML = '<p class="error-message">Error al cargar el periodo</p>';
+                }
+            } catch (error) {
+                document.getElementById('realPnLContent').innerHTML = '<p class="error-message">Error de conexión</p>';
+            }
+        }
+
+        function renderRealPnL(period) {
+            const startDate = new Date(period.start_date + 'T00:00:00');
+            const endDate = new Date(period.end_date + 'T00:00:00');
+            const dailyTargetPct = parseFloat(period.daily_target_pct);
+            
+            // Calcular proyección
+            let projectedCapital = parseFloat(period.initial_capital);
+            const projection = [];
+            const currentDate = new Date(startDate);
+            let dayNumber = 1;
+            
+            while (currentDate <= endDate) {
+                const dailyTarget = projectedCapital * dailyTargetPct;
+                projection.push({
+                    day: dayNumber,
+                    date: new Date(currentDate).toISOString().split('T')[0],
+                    projectedPnL: dailyTarget,
+                    projectedCapital: projectedCapital + dailyTarget
+                });
+                projectedCapital += dailyTarget;
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayNumber++;
+            }
+            
+            // Obtener datos reales de sesiones
+            const sessions = period.sessions || [];
+            const realData = {};
+            sessions.forEach(session => {
+                realData[session.date] = {
+                    pnl: parseFloat(session.daily_pnl || 0),
+                    capital: parseFloat(session.starting_capital) + parseFloat(session.daily_pnl || 0),
+                    status: session.status
+                };
+            });
+            
+            // Combinar datos
+            const combinedData = projection.map(proj => {
+                const real = realData[proj.date] || null;
+                return {
+                    day: proj.day,
+                    date: proj.date,
+                    projectedPnL: proj.projectedPnL,
+                    realPnL: real ? real.pnl : null,
+                    projectedCapital: proj.projectedCapital,
+                    realCapital: real ? real.capital : null,
+                    hasData: real !== null
+                };
+            });
+            
+            // Calcular totales
+            const totalProjectedPnL = projection.reduce((sum, p) => sum + p.projectedPnL, 0);
+            const totalRealPnL = sessions.reduce((sum, s) => sum + parseFloat(s.daily_pnl || 0), 0);
+            const finalProjectedCapital = parseFloat(period.initial_capital) + totalProjectedPnL;
+            const finalRealCapital = parseFloat(period.current_capital);
+            
+            // Preparar datos para la gráfica
+            const chartLabels = combinedData.map(d => formatDateForDisplay(d.date));
+            const projectedPnLData = combinedData.map(d => d.projectedPnL);
+            const realPnLData = combinedData.map(d => d.realPnL !== null ? d.realPnL : null);
+            
+            const html = `
+                <div class="card">
+                    <h3>PnL Real vs Proyectado - Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''}</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Inicial:</span>
+                        <span class="stat-value">$${parseFloat(period.initial_capital).toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Final Proyectado:</span>
+                        <span class="stat-value">$${finalProjectedCapital.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Capital Final Real:</span>
+                        <span class="stat-value ${finalRealCapital >= parseFloat(period.initial_capital) ? 'positive' : 'negative'}">$${finalRealCapital.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">PnL Total Proyectado:</span>
+                        <span class="stat-value positive">$${totalProjectedPnL.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">PnL Total Real:</span>
+                        <span class="stat-value ${totalRealPnL >= 0 ? 'positive' : 'negative'}">$${totalRealPnL.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Diferencia:</span>
+                        <span class="stat-value ${(totalRealPnL - totalProjectedPnL) >= 0 ? 'positive' : 'negative'}">$${(totalRealPnL - totalProjectedPnL).toFixed(2)}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Sesiones Registradas:</span>
+                        <span class="stat-value">${sessions.length} de ${projection.length}</span>
+                    </div>
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h3>Gráfica de Desempeño Diario</h3>
+                    <canvas id="pnlChart" style="max-height: 400px;"></canvas>
+                </div>
+                
+                <div style="margin-top: 20px; overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Día</th>
+                                <th>Fecha</th>
+                                <th>PnL Proyectado</th>
+                                <th>PnL Real</th>
+                                <th>Diferencia</th>
+                                <th>Capital Proyectado</th>
+                                <th>Capital Real</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${combinedData.map(d => {
+                                const diff = d.realPnL !== null ? (d.realPnL - d.projectedPnL) : null;
+                                return `
+                                <tr style="${d.hasData ? '' : 'opacity: 0.6;'}">
+                                    <td>${d.day}</td>
+                                    <td>${formatDateForDisplay(d.date)}</td>
+                                    <td class="positive">$${d.projectedPnL.toFixed(2)}</td>
+                                    <td class="${d.realPnL !== null ? (d.realPnL >= 0 ? 'positive' : 'negative') : ''}">
+                                        ${d.realPnL !== null ? `$${d.realPnL.toFixed(2)}` : '-'}
+                                    </td>
+                                    <td class="${diff !== null ? (diff >= 0 ? 'positive' : 'negative') : ''}">
+                                        ${diff !== null ? `$${diff.toFixed(2)}` : '-'}
+                                    </td>
+                                    <td>$${d.projectedCapital.toFixed(2)}</td>
+                                    <td>${d.realCapital !== null ? `$${d.realCapital.toFixed(2)}` : '-'}</td>
+                                    <td>
+                                        ${d.hasData ? `<span class="status-badge ${realData[d.date].status}">${realData[d.date].status}</span>` : '-'}
+                                    </td>
+                                </tr>
+                            `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('realPnLContent').innerHTML = html;
+            
+            // Crear gráfica después de que el HTML esté en el DOM
+            setTimeout(() => {
+                const ctx = document.getElementById('pnlChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                label: 'PnL Proyectado',
+                                data: projectedPnLData,
+                                borderColor: '#010332',
+                                backgroundColor: 'rgba(1, 3, 50, 0.1)',
+                                tension: 0.4,
+                                fill: false
+                            }, {
+                                label: 'PnL Real',
+                                data: realPnLData,
+                                borderColor: realPnLData.some(v => v !== null && v < 0) ? '#dc3545' : '#28a745',
+                                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                                tension: 0.4,
+                                fill: false,
+                                pointRadius: 5,
+                                pointHoverRadius: 7
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            if (context.parsed.y !== null) {
+                                                label += '$' + context.parsed.y.toFixed(2);
+                                            } else {
+                                                label += 'Sin datos';
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + value.toFixed(2);
+                                        }
+                                    }
+                                },
+                                x: {
+                                    ticks: {
+                                        maxRotation: 45,
+                                        minRotation: 45
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, 100);
         }
 
         window.onclick = function(event) {
