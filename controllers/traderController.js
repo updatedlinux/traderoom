@@ -393,7 +393,7 @@ const registerTrade = async (req, res) => {
   try {
     const userId = req.session.userId;
     const { id: sessionId } = req.params;
-    const { result, currency_pair, payout_real } = req.body;
+    const { result, currency_pair, payout_real, pnl_real } = req.body;
 
     if (!result || (result !== 'ITM' && result !== 'OTM')) {
       return res.status(400).json({
@@ -425,6 +425,18 @@ const registerTrade = async (req, res) => {
       });
     }
 
+    // Validar pnl_real si se proporciona (opcional)
+    let pnlReal = null;
+    if (pnl_real !== undefined && pnl_real !== null && pnl_real !== '') {
+      pnlReal = parseFloat(pnl_real);
+      if (isNaN(pnlReal)) {
+        return res.status(400).json({
+          success: false,
+          error: 'PnL Real debe ser un número válido'
+        });
+      }
+    }
+
     // Verificar que la sesión pertenece al usuario
     const session = await DailySession.findByPk(sessionId, {
       include: [{
@@ -442,7 +454,7 @@ const registerTrade = async (req, res) => {
       });
     }
 
-    const tradeResult = await tradingService.registerTrade(sessionId, result, currency_pair, payoutReal);
+    const tradeResult = await tradingService.registerTrade(sessionId, result, currency_pair, payoutReal, pnlReal);
 
     res.json({
       success: true,

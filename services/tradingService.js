@@ -151,9 +151,10 @@ async function getOrCreateDailySession(periodId, date = null) {
  * @param {string} result - 'ITM' o 'OTM'
  * @param {string} currencyPair - Par de divisas (ej: EUR/USD)
  * @param {number} payoutReal - Payout real de la operación (ej: 0.85 = 85%)
+ * @param {number} pnlReal - PnL real opcional. Si se proporciona, se usa este valor en lugar de calcularlo
  * @returns {Promise<Object>} Resultado de la operación
  */
-async function registerTrade(sessionId, result, currencyPair, payoutReal) {
+async function registerTrade(sessionId, result, currencyPair, payoutReal, pnlReal = null) {
   if (result !== 'ITM' && result !== 'OTM') {
     throw new Error('Resultado debe ser ITM o OTM');
   }
@@ -235,8 +236,16 @@ async function registerTrade(sessionId, result, currencyPair, payoutReal) {
     throw new Error('El stake excede el capital disponible');
   }
 
-  // Calcular PnL usando el payout_real proporcionado
-  const pnl = calculatePnL(stake, result, payoutReal);
+  // Calcular PnL: usar pnlReal si se proporciona, sino calcularlo
+  let pnl;
+  if (pnlReal !== null && pnlReal !== undefined) {
+    // Usar el PnL real proporcionado (útil cuando el broker redondea el stake)
+    pnl = parseFloat(pnlReal);
+    console.log(`[TRADE] Usando PnL Real proporcionado: $${pnl.toFixed(2)} (en lugar del cálculo automático)`);
+  } else {
+    // Calcular PnL usando el payout_real proporcionado
+    pnl = calculatePnL(stake, result, payoutReal);
+  }
   
   // Actualizar capital
   currentCapital += pnl;

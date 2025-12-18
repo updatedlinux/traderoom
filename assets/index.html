@@ -1783,6 +1783,14 @@
                         <input type="number" id="payoutRealInput" step="0.01" min="0" max="100" value="${(parseFloat(currentPeriod.profit_pct) * 100).toFixed(2)}" style="width: 100%; max-width: 300px;">
                         <small style="color: #666; display: block; margin-top: 5px;">Payout real de esta operación (por defecto: ${(parseFloat(currentPeriod.profit_pct) * 100).toFixed(2)}%)</small>
                     </div>
+                    <div class="form-group" style="margin: 20px 0;">
+                        <label><i class="fas fa-dollar-sign"></i> PnL Real (Opcional)</label>
+                        <input type="number" id="pnlRealInput" step="0.01" placeholder="Dejar vacío para cálculo automático" style="width: 100%; max-width: 300px;">
+                        <small style="color: #666; display: block; margin-top: 5px;">
+                            Si el broker redondea el monto (ej: $8.87 → $9), ingresa aquí el PnL real obtenido. 
+                            Si se deja vacío, se calculará automáticamente con el monto y payout indicados.
+                        </small>
+                    </div>
                     <div class="trading-controls">
                         <button class="btn trade-result-btn itm" onclick="registerTrade('ITM')">
                             <i class="fas fa-check-circle"></i> ITM (Ganancia)
@@ -1937,6 +1945,16 @@
             // Convertir porcentaje a decimal (ej: 80% -> 0.80)
             const payoutReal = payoutRealPercent / 100;
 
+            // Obtener PnL Real opcional
+            const pnlRealInput = document.getElementById('pnlRealInput');
+            let pnlReal = null;
+            if (pnlRealInput && pnlRealInput.value.trim() !== '') {
+                const pnlRealValue = parseFloat(pnlRealInput.value);
+                if (!isNaN(pnlRealValue)) {
+                    pnlReal = pnlRealValue;
+                }
+            }
+
             // Validar formato básico del par
             if (!/^[A-Z]{3}\/[A-Z]{3}$/i.test(currencyPair)) {
                 if (!confirm(`El formato del par "${currencyPair}" no es estándar (ej: EUR/USD). ¿Deseas continuar de todas formas?`)) {
@@ -1944,22 +1962,39 @@
                 }
             }
 
-            if (!confirm(`¿Registrar operación ${result} en ${currencyPair.toUpperCase()} con payout ${payoutRealPercent}%?`)) return;
+            let confirmMessage = `¿Registrar operación ${result} en ${currencyPair.toUpperCase()} con payout ${payoutRealPercent}%?`;
+            if (pnlReal !== null) {
+                confirmMessage += `\n\nPnL Real: $${pnlReal.toFixed(2)} (se usará este valor en lugar del cálculo automático)`;
+            }
+            if (!confirm(confirmMessage)) return;
 
             try {
+                const requestBody = { 
+                    result,
+                    currency_pair: currencyPair,
+                    payout_real: payoutReal
+                };
+                
+                // Agregar pnl_real solo si se proporcionó
+                if (pnlReal !== null) {
+                    requestBody.pnl_real = pnlReal;
+                }
+
                 const response = await fetch(`${API_BASE}/sessions/${currentSession.id}/trades`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ 
-                        result,
-                        currency_pair: currencyPair,
-                        payout_real: payoutReal
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const data = await response.json();
                 if (data.success) {
+                    // Limpiar el campo PnL Real después de registrar
+                    const pnlRealInput = document.getElementById('pnlRealInput');
+                    if (pnlRealInput) {
+                        pnlRealInput.value = '';
+                    }
+                    
                     // Actualizar currentSession con los datos del backend
                     currentSession = {
                         ...currentSession,
