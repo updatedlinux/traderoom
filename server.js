@@ -2,6 +2,8 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const cors = require('cors');
+const http = require('http');
+const socketIo = require('socket.io');
 require('dotenv').config();
 
 // Configurar timezone a GMT-5 (Bogotá)
@@ -14,6 +16,7 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const traderRoutes = require('./routes/trader');
 const statisticsRoutes = require('./routes/statistics');
+const telegramRoutes = require('./routes/telegram.routes');
 
 const app = express();
 
@@ -55,6 +58,7 @@ app.use(express.static(path.join(__dirname, 'assets')));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/statistics', require('./routes/statistics')); // Debe ir ANTES de /api para evitar conflicto
+app.use('/api', telegramRoutes); // Rutas de Telegram (debe ir antes de traderRoutes)
 app.use('/api', traderRoutes); // Esta es más general, debe ir al final
 
 // Ruta raíz - servir index.html
@@ -74,6 +78,21 @@ app.use((err, req, res, next) => {
 // Inicializar servidor
 const PORT_BACKEND = process.env.PORT_BACKEND || 3000;
 const PORT_FRONTEND = process.env.PORT_FRONTEND || 80;
+
+// Crear servidor HTTP para Socket.io
+const server = http.createServer(app);
+
+// Configurar Socket.io
+const io = socketIo(server, {
+  cors: {
+    origin: true, // Permitir todos los orígenes
+    credentials: true,
+    methods: ['GET', 'POST']
+  }
+});
+
+// Hacer io disponible en la app
+app.set('io', io);
 
 // Probar conexión a la base de datos
 sequelize.authenticate()
@@ -103,9 +122,24 @@ sequelize.authenticate()
       console.warn('[CRON] Ejecuta: npm install node-cron');
     }
     
-    // Iniciar servidor en puerto backend
-    app.listen(PORT_BACKEND, () => {
-      console.log(`Servidor backend escuchando en puerto ${PORT_BACKEND}`);
+    // Inicializar Telegram Signal Listener
+    try {
+      const TelegramSignalListener = require('./services/telegram-listener');
+      const telegramListener = new TelegramSignalListener(io);
+      app.set('telegramListener', telegramListener);
+      
+      // Iniciar listener de Telegram (no bloquea si no está configurado)
+      telegramListener.start().catch((error) => {
+        console.warn('⚠️  No se pudo iniciar el listener de Telegram:', error.message);
+      });
+    } catch (error) {
+      console.warn('⚠️  Error al inicializar Telegram listener:', error.message);
+      console.warn('   Asegúrate de que las dependencias estén instaladas: npm install telegram input');
+    }
+    
+    // Iniciar servidor HTTP (con Socket.io) en puerto backend
+    server.listen(PORT_BACKEND, () => {
+      console.log(`🚀 Servidor backend escuchando en puerto ${PORT_BACKEND}`);
     });
 
     // Si PORT_FRONTEND es diferente, iniciar otro servidor (opcional)
@@ -126,6 +160,31 @@ sequelize.authenticate()
     console.error('Error al conectar con MariaDB:', err);
     process.exit(1);
   });
+
+// Manejo de cierre limpio
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Cerrando servidor...');
+  const telegramListener = app.get('telegramListener');
+  if (telegramListener) {
+    await telegramListener.stop();
+  }
+  server.close(() => {
+    console.log('✅ Servidor cerrado correctamente');
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 Cerrando servidor...');
+  const telegramListener = app.get('telegramListener');
+  if (telegramListener) {
+    await telegramListener.stop();
+  }
+  server.close(() => {
+    console.log('✅ Servidor cerrado correctamente');
+    process.exit(0);
+  });
+});
 
 module.exports = app;
 

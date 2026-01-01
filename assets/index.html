@@ -600,6 +600,137 @@
             display: none;
         }
 
+        /* Telegram Signals Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-overlay .modal-content {
+            background: #1f2937;
+            color: #f9fafb;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-overlay .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #374151;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-overlay .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #f9fafb;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: #9ca3af;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: #374151;
+            color: #f9fafb;
+        }
+
+        .modal-overlay .modal-body {
+            padding: 16px 20px;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .signals-messages-container {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .signals-messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .signals-messages-container::-webkit-scrollbar-track {
+            background: #111827;
+            border-radius: 4px;
+        }
+
+        .signals-messages-container::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        .signals-messages-container::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        .signal-message {
+            background: #111827;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid #010332;
+        }
+
+        .signal-message-header {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .signal-text {
+            white-space: pre-wrap;
+            font-family: inherit;
+            font-size: 14px;
+            color: #e5e7eb;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .signals-messages-container .loading,
+        .signals-messages-container .error,
+        .signals-messages-container .no-messages {
+            text-align: center;
+            padding: 40px 20px;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .signals-messages-container .error {
+            color: #ef4444;
+        }
+
         /* Trading Controls */
         .trading-controls {
             display: flex;
@@ -1002,6 +1133,21 @@
                 </button>
             </div>
             <div id="deletePeriodError" class="error-message" style="display: none; margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <!-- Telegram Signals Modal -->
+    <div id="signals-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📡 Señales en vivo (Telegram)</h3>
+                <button id="btn-close-signals-modal" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="signals-messages-container" class="signals-messages-container">
+                    <div class="loading">Cargando mensajes...</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1750,6 +1896,13 @@
                         <small style="color: #666; display: block; margin-top: 8px;">Cierra esta sesión manualmente. No podrás reabrirla hasta el día siguiente.</small>
                     </div>
                 ` : ''}
+                
+                <div style="margin: 20px 0; padding: 15px; background: #e3f2fd; border-radius: 8px; border: 1px solid #010332;">
+                    <button class="btn" id="btn-open-signals-modal" style="background: #010332; width: 100%; max-width: 300px;">
+                        <i class="fas fa-satellite-dish"></i> 📡 Ver Señales en vivo
+                    </button>
+                    <small style="color: #666; display: block; margin-top: 8px;">Visualiza las señales de trading en tiempo real desde Telegram.</small>
+                </div>
                 ${canTrade ? `
                     <div class="form-group" style="margin: 20px 0;">
                         <label><i class="fas fa-exchange-alt"></i> Par de Divisas</label>
@@ -2931,6 +3084,123 @@
                 event.target.style.display = 'none';
             }
         }
+    </script>
+
+    <!-- Socket.io Client -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Telegram Signals Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const openBtn = document.getElementById('btn-open-signals-modal');
+            const closeBtn = document.getElementById('btn-close-signals-modal');
+            const modal = document.getElementById('signals-modal');
+            const container = document.getElementById('signals-messages-container');
+
+            if (!openBtn || !modal || !container) return;
+
+            let socketConnected = false;
+            let socket;
+
+            function openModal() {
+                modal.classList.remove('hidden');
+                loadInitialMessages();
+                connectSocket();
+            }
+
+            function closeModal() {
+                modal.classList.add('hidden');
+                if (socket && socketConnected) {
+                    socket.disconnect();
+                    socketConnected = false;
+                }
+            }
+
+            openBtn.addEventListener('click', openModal);
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeModal);
+            }
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            async function loadInitialMessages() {
+                container.innerHTML = '<div class="loading">Cargando mensajes...</div>';
+                try {
+                    const res = await fetch('/api/telegram/messages?limit=100', { credentials: 'include' });
+                    if (!res.ok) {
+                        if (res.status === 503) {
+                            container.innerHTML = '<div class="error">El visor de señales no está disponible. Verifica la configuración de Telegram en el servidor.</div>';
+                            return;
+                        }
+                        throw new Error('Error al cargar mensajes');
+                    }
+                    const messages = await res.json();
+                    renderMessages(messages.reverse());
+                } catch (err) {
+                    console.error(err);
+                    container.innerHTML = '<div class="error">No se pudieron cargar las señales. Verifica la conexión al servidor.</div>';
+                }
+            }
+
+            function renderMessages(messages) {
+                container.innerHTML = '';
+                if (messages.length === 0) {
+                    container.innerHTML = '<div class="no-messages">No hay mensajes aún. Los mensajes aparecerán aquí cuando lleguen al canal de Telegram.</div>';
+                    return;
+                }
+                messages.forEach(addMessageToContainer);
+                container.scrollTop = container.scrollHeight;
+            }
+
+            function addMessageToContainer(msg) {
+                const div = document.createElement('div');
+                div.className = 'signal-message';
+                const date = new Date(msg.date);
+                div.innerHTML = `
+                    <div class="signal-message-header">
+                        <span class="signal-time">${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                    </div>
+                    <pre class="signal-text">${escapeHtml(msg.text)}</pre>
+                `;
+                container.appendChild(div);
+            }
+
+            function connectSocket() {
+                if (socketConnected) return;
+                
+                try {
+                    socket = io();
+                    
+                    socket.on('connect', () => {
+                        socketConnected = true;
+                        console.log('✅ Conectado a WebSocket para señales de Telegram');
+                    });
+                    
+                    socket.on('telegram:new_message', (msg) => {
+                        addMessageToContainer(msg);
+                        container.scrollTop = container.scrollHeight;
+                    });
+                    
+                    socket.on('disconnect', () => {
+                        socketConnected = false;
+                        console.log('❌ Desconectado de WebSocket');
+                    });
+                    
+                    socket.on('connect_error', (error) => {
+                        console.error('❌ Error de conexión WebSocket:', error);
+                    });
+                } catch (error) {
+                    console.error('❌ Error al conectar WebSocket:', error);
+                }
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        });
     </script>
 </body>
 

@@ -175,14 +175,17 @@ traderoom/
 │   ├── auth.js
 │   ├── admin.js
 │   ├── trader.js
-│   └── statistics.js
+│   ├── statistics.js
+│   └── telegram.routes.js  # Rutas para el visor de señales de Telegram
 ├── scripts/           # Scripts de utilidad
 │   ├── initDb.js     # Inicialización de base de datos
 │   ├── generateSecret.js  # Generador de secretos JWT
 │   ├── addPayoutRealColumn.js  # Migración: agregar columna payout_real
-│   └── addNicknameColumn.js    # Migración: agregar columna nickname
+│   ├── addNicknameColumn.js    # Migración: agregar columna nickname
+│   └── get-telegram-dialogs.js  # Script para obtener IDs de canales de Telegram
 ├── services/         # Servicios de negocio
-│   └── tradingService.js  # Lógica de trading
+│   ├── tradingService.js  # Lógica de trading
+│   └── telegram-listener.js  # Listener de mensajes de Telegram
 ├── server.js         # Servidor principal
 ├── package.json
 ├── .env.example
@@ -357,6 +360,124 @@ Estos logs son útiles para:
 - Debugging de problemas
 - Seguimiento de estrategias de martingala
 
+## 📡 Integración con Telegram (Visor de Señales)
+
+Esta aplicación incluye un visor en tiempo real de mensajes de un canal de Telegram con señales de trading. El sistema se conecta a Telegram como usuario (no como bot) y escucha mensajes de un canal específico, mostrándolos en tiempo real en la interfaz web.
+
+### Configuración Inicial
+
+#### 1. Obtener credenciales de Telegram API
+
+1. Visita [https://my.telegram.org](https://my.telegram.org)
+2. Inicia sesión con tu número de teléfono
+3. Ve a **API Development Tools**
+4. Crea una nueva aplicación:
+   - **App title:** TradeRoom Signal Listener
+   - **Short name:** traderoom
+   - **Platform:** Other
+5. Anota los valores de:
+   - `api_id` (número)
+   - `api_hash` (cadena alfanumérica)
+
+#### 2. Configurar variables de entorno
+
+Edita el archivo `.env` y completa:
+
+```bash
+TELEGRAM_API_ID=tu_api_id
+TELEGRAM_API_HASH=tu_api_hash
+TELEGRAM_PHONE=+57300XXXXXXX
+```
+
+#### 3. Obtener Session String y Channel ID
+
+Ejecuta el script auxiliar:
+
+```bash
+node scripts/get-telegram-dialogs.js
+```
+
+Este script:
+- Te pedirá el código de verificación que Telegram envía a tu cuenta
+- Si tienes 2FA, pedirá la contraseña
+- Mostrará tu `TELEGRAM_SESSION_STRING` (cópialo al `.env`)
+- Listará todos tus canales/grupos con sus IDs
+
+Copia el ID del canal de señales y añádelo al `.env`:
+
+```bash
+TELEGRAM_SESSION_STRING=tu_session_string_aqui
+TELEGRAM_SIGNAL_CHANNEL_ID=-1001234567890
+```
+
+**Nota**: El ID del canal puede ser un número negativo (ej: `-1001234567890`). Asegúrate de copiarlo exactamente como aparece.
+
+#### 4. Instalar dependencias
+
+Las dependencias de Telegram se instalan automáticamente con `npm install`, pero si necesitas instalarlas manualmente:
+
+```bash
+npm install telegram input socket.io
+```
+
+#### 5. Iniciar la aplicación
+
+```bash
+npm start
+```
+
+El servidor se conectará automáticamente a Telegram y comenzará a escuchar mensajes del canal configurado. Verás en la consola:
+
+```
+🔌 Conectando a Telegram como usuario...
+✅ Conectado a Telegram
+👂 Escuchando mensajes del canal -1001234567890...
+```
+
+### Uso
+
+1. Navega a la sección **"Sesión Actual"** en la aplicación
+2. Haz clic en el botón **"📡 Ver Señales en vivo"**
+3. Se abrirá un modal mostrando:
+   - Historial de los últimos 100 mensajes del canal
+   - Mensajes nuevos en tiempo real conforme llegan
+
+### Características
+
+- **Buffer en memoria**: Los últimos 200 mensajes se mantienen en memoria
+- **Tiempo real**: Los mensajes nuevos aparecen automáticamente sin recargar
+- **Sin parseo**: Los mensajes se muestran tal cual llegan del canal
+- **Historial**: Al abrir el modal, se cargan los últimos 100 mensajes
+- **Auto-scroll**: El contenedor se desplaza automáticamente al recibir nuevos mensajes
+
+### Notas Importantes
+
+- Los mensajes se mantienen solo en memoria (buffer de 200 mensajes)
+- Si reinicias el servidor, se perderá el historial anterior
+- La conexión a Telegram se mantiene activa mientras el servidor esté corriendo
+- No se requiere que el canal sea público; funciona con canales privados a los que tu cuenta tenga acceso
+- El sistema no guarda mensajes en la base de datos MariaDB
+- Si las variables de Telegram no están configuradas, el listener simplemente no se iniciará (no causará errores)
+
+### Solución de Problemas
+
+**Error: "Telegram listener not initialized"**
+- Verifica que las variables `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_PHONE` y `TELEGRAM_SESSION_STRING` estén configuradas en `.env`
+- Asegúrate de que `TELEGRAM_SIGNAL_CHANNEL_ID` esté configurado con el ID correcto del canal
+
+**Error: "Error de autenticación"**
+- Verifica que el `TELEGRAM_SESSION_STRING` sea válido
+- Si es la primera vez, ejecuta `node scripts/get-telegram-dialogs.js` para generar un nuevo session string
+
+**No aparecen mensajes en tiempo real**
+- Verifica que el servidor esté conectado a Telegram (revisa los logs del servidor)
+- Asegúrate de que el `TELEGRAM_SIGNAL_CHANNEL_ID` sea correcto
+- Verifica que tu cuenta de Telegram tenga acceso al canal
+
+**WebSocket no conecta**
+- Verifica que Socket.io esté instalado: `npm install socket.io`
+- Revisa la consola del navegador para ver errores de conexión
+
 ## API Endpoints
 
 ### Autenticación
@@ -385,6 +506,10 @@ Estos logs son útiles para:
 - `GET /api/statistics/trader/sessions/:id/excel` - Descargar reporte Excel de una sesión
 - `GET /api/statistics/admin` - Estadísticas globales para admin (usuarios, periodos, sesiones, trades)
 - `GET /api/statistics/admin/users/:userId` - Detalles de un usuario específico (periodos, sesiones, trades)
+
+### Telegram (Visor de Señales)
+- `GET /api/telegram/messages?limit=50` - Obtener mensajes recientes del buffer (máximo 200)
+- WebSocket: `telegram:new_message` - Evento emitido cuando llega un nuevo mensaje al canal
 
 ## Roles y Permisos
 
