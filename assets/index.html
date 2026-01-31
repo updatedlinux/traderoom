@@ -64,10 +64,13 @@
         }
 
         @keyframes pulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: scale(1);
                 opacity: 1;
             }
+
             50% {
                 transform: scale(1.1);
                 opacity: 0.7;
@@ -541,8 +544,13 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         .modal-content {
@@ -563,6 +571,7 @@
                 transform: translateY(-50px);
                 opacity: 0;
             }
+
             to {
                 transform: translateY(0);
                 opacity: 1;
@@ -790,12 +799,12 @@
                 width: auto;
                 max-width: 300px;
             }
-            
+
             .sidebar {
                 top: 70px;
                 min-height: calc(100vh - 70px);
             }
-            
+
             .main-content {
                 margin-top: 70px;
                 min-height: calc(100vh - 70px);
@@ -815,7 +824,8 @@
     <!-- Login Section -->
     <div id="loginSection" class="login-container">
         <div style="text-align: center; margin-bottom: 30px;">
-            <img src="logo-traderoom.png" alt="TradeRoom Logo" style="max-width: 200px; height: auto; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));">
+            <img src="logo-traderoom.png" alt="TradeRoom Logo"
+                style="max-width: 200px; height: auto; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));">
         </div>
         <div class="login-box">
             <h2><i class="fas fa-lock"></i> Iniciar Sesión</h2>
@@ -932,7 +942,8 @@
                     <div style="margin-bottom: 20px;">
                         <div class="form-group">
                             <label><i class="fas fa-calendar-alt"></i> Seleccionar Periodo</label>
-                            <select id="periodSelector" onchange="onPeriodSelectorChange()" style="width: 100%; max-width: 400px;">
+                            <select id="periodSelector" onchange="onPeriodSelectorChange()"
+                                style="width: 100%; max-width: 400px;">
                                 <option value="">-- Selecciona un periodo --</option>
                             </select>
                         </div>
@@ -1062,8 +1073,10 @@
                 </div>
                 <div class="form-group">
                     <label>Sobrenombre / Apodo</label>
-                    <input type="text" id="periodNickname" placeholder="Ej: IQOption, Quotex, Cuenta Demo" maxlength="100">
-                    <small style="color: #666; display: block; margin-top: 5px;">Opcional: Un nombre para identificar fácilmente este periodo</small>
+                    <input type="text" id="periodNickname" placeholder="Ej: IQOption, Quotex, Cuenta Demo"
+                        maxlength="100">
+                    <small style="color: #666; display: block; margin-top: 5px;">Opcional: Un nombre para identificar
+                        fácilmente este periodo</small>
                 </div>
                 <div class="form-group">
                     <label>Capital Inicial</label>
@@ -1159,7 +1172,8 @@
                 <span class="close" onclick="closeModal('closeSession')">&times;</span>
             </div>
             <div style="padding: 20px 0;">
-                <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <div
+                    style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
                     <p style="font-size: 16px; margin: 0; color: #856404;">
                         <i class="fas fa-info-circle"></i> <strong>Advertencia Importante</strong>
                     </p>
@@ -1222,9 +1236,15 @@
 
     <script>
         // Configuración
-        const API_BASE = window.location.origin.includes('traderoom.soyjonnymelendez.net') 
-            ? 'https://backtrade.soyjonnymelendez.net/api'
-            : '/api';
+        const IS_PROD = window.location.origin.includes('traderoom.soyjonnymelendez.net');
+        // Si estamos en prod, usa el dominio del backend.
+        // Si no, si estamos en puero 3000, usa el origen actual.
+        // Si no (ej: puerto 80 local), asume backend en puerto 3000 del mismo host.
+        const BACKEND_URL = IS_PROD
+            ? 'https://backtrade.soyjonnymelendez.net'
+            : (window.location.port === '3000' ? window.location.origin : 'http://' + window.location.hostname + ':3000');
+
+        const API_BASE = `${BACKEND_URL}/api`;
 
         let currentUser = null;
         let currentPeriod = null;
@@ -1240,7 +1260,7 @@
             }
             // Si es un objeto Date o timestamp, usar toLocaleDateString con timezone
             const date = new Date(dateString);
-            return date.toLocaleDateString('es-CO', { 
+            return date.toLocaleDateString('es-CO', {
                 timeZone: 'America/Bogota',
                 year: 'numeric',
                 month: '2-digit',
@@ -1285,11 +1305,11 @@
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('mainContent').classList.remove('content-hidden');
             document.getElementById('userInfo').textContent = currentUser.username;
-            
+
             // Ocultar ambos menús primero
             document.getElementById('adminMenu').style.display = 'none';
             document.getElementById('traderMenu').style.display = 'none';
-            
+
             // Ocultar sección de usuarios si no es admin
             const usersSection = document.getElementById('usersSection');
             if (usersSection) {
@@ -1298,7 +1318,7 @@
                     usersSection.classList.remove('active');
                 }
             }
-            
+
             if (currentUser.role === 'admin') {
                 document.getElementById('adminMenu').style.display = 'block';
                 showSection('users');
@@ -1370,13 +1390,13 @@
 
             document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-            
+
             const sectionElement = document.getElementById(sectionName + 'Section');
             if (!sectionElement) {
                 console.error('Sección no encontrada:', sectionName);
                 return;
             }
-            
+
             sectionElement.classList.add('active');
             if (event && event.target) {
                 const menuItem = event.target.closest('.menu-item');
@@ -1454,7 +1474,7 @@
             event.preventDefault();
             const errorDiv = document.getElementById('createUserError');
             const successDiv = document.getElementById('createUserSuccess');
-            
+
             try {
                 const response = await fetch(`${API_BASE}/admin/users`, {
                     method: 'POST',
@@ -1500,11 +1520,11 @@
             const errorDiv = document.getElementById('editUserError');
             const successDiv = document.getElementById('editUserSuccess');
             const userId = document.getElementById('editUserId').value;
-            
+
             const updateData = {
                 is_active: document.getElementById('editUserActive').value === 'true'
             };
-            
+
             const newPassword = document.getElementById('editUserPassword').value;
             if (newPassword) {
                 updateData.password = newPassword;
@@ -1633,10 +1653,10 @@
                     if (selector) {
                         // Guardar el valor actual antes de actualizar
                         const currentValue = selector.value;
-                        
+
                         // Limpiar opciones existentes (excepto la primera)
                         selector.innerHTML = '<option value="">-- Selecciona un periodo --</option>';
-                        
+
                         // Agregar periodos
                         data.periods.forEach(period => {
                             const option = document.createElement('option');
@@ -1644,7 +1664,7 @@
                             option.textContent = `Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''} (${formatDateForDisplay(period.start_date)} - ${formatDateForDisplay(period.end_date)})`;
                             selector.appendChild(option);
                         });
-                        
+
                         // Restaurar el valor si existe y el periodo sigue disponible
                         if (currentValue && data.periods.find(p => p.id == currentValue)) {
                             selector.value = currentValue;
@@ -1661,7 +1681,7 @@
         async function onPeriodSelectorChange() {
             const selector = document.getElementById('periodSelector');
             const periodId = selector ? selector.value : null;
-            
+
             if (!periodId || periodId === '') {
                 currentPeriod = null;
                 currentSession = null;
@@ -1734,11 +1754,11 @@
             const errorDiv = document.getElementById('createPeriodError');
             const periodId = document.getElementById('editPeriodId').value;
             const isEdit = periodId !== '';
-            
+
             try {
                 const url = isEdit ? `${API_BASE}/periods/${periodId}` : `${API_BASE}/periods`;
                 const method = isEdit ? 'PATCH' : 'POST';
-                
+
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
@@ -1792,7 +1812,7 @@
                 if (data.success) {
                     // Calcular capital actual y nextStake si no viene del backend
                     const sessionCapital = data.session.currentCapital || (parseFloat(data.session.starting_capital) + parseFloat(data.session.daily_pnl || 0));
-                    
+
                     // Usar el nextStake del backend si está disponible, sino calcularlo
                     // IMPORTANTE: El backend calcula correctamente el nextStake considerando martingala
                     let calculatedNextStake = data.session.nextStake;
@@ -1803,7 +1823,7 @@
                     } else {
                         console.log('Frontend: Usando nextStake del backend:', calculatedNextStake);
                     }
-                    
+
                     currentSession = {
                         ...data.session,
                         currentCapital: sessionCapital,
@@ -1832,7 +1852,7 @@
             const capital = session.currentCapital || (parseFloat(session.starting_capital) + parseFloat(session.daily_pnl));
             const dailyTarget = session.dailyTarget || (parseFloat(session.starting_capital) * parseFloat(currentPeriod.daily_target_pct));
             const maxLoss = session.maxDailyLoss || (parseFloat(session.starting_capital) * parseFloat(currentPeriod.max_daily_loss_pct));
-            
+
             // Calcular nextStake si no viene del backend, usando el capital actual (no el inicial)
             // Esto asegura que el stake se recalcule basado en el capital actual, no el inicial
             let calculatedNextStake = session.nextStake;
@@ -2021,21 +2041,21 @@
                     </thead>
                     <tbody>
                         ${trades.map(trade => {
-                            const tradeDate = new Date(trade.created_at);
-                            // Formatear hora en GMT-5 (Bogotá)
-                            const timeStr = tradeDate.toLocaleTimeString('es-CO', { 
-                                timeZone: 'America/Bogota',
-                                hour: '2-digit', 
-                                minute: '2-digit', 
-                                second: '2-digit' 
-                            });
-                            const dateStr = tradeDate.toLocaleDateString('es-CO', {
-                                timeZone: 'America/Bogota',
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit'
-                            });
-                            return `
+                const tradeDate = new Date(trade.created_at);
+                // Formatear hora en GMT-5 (Bogotá)
+                const timeStr = tradeDate.toLocaleTimeString('es-CO', {
+                    timeZone: 'America/Bogota',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                const dateStr = tradeDate.toLocaleDateString('es-CO', {
+                    timeZone: 'America/Bogota',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                return `
                             <tr>
                                 <td>${trade.trade_number}</td>
                                 <td>${dateStr} ${timeStr}</td>
@@ -2048,7 +2068,7 @@
                                 <td>${trade.martingale_step}</td>
                             </tr>
                         `;
-                        }).join('')}
+            }).join('')}
                     </tbody>
                 </table>
             `;
@@ -2076,7 +2096,7 @@
             const select = document.getElementById('currencyPairSelect');
             const custom = document.getElementById('currencyPairCustom');
             let currencyPair = '';
-            
+
             if (custom.style.display !== 'none' && custom.value.trim() !== '') {
                 currencyPair = custom.value.trim();
             } else if (select.value) {
@@ -2089,7 +2109,7 @@
             // Obtener el payout real
             const payoutRealInput = document.getElementById('payoutRealInput');
             const payoutRealPercent = parseFloat(payoutRealInput.value);
-            
+
             if (isNaN(payoutRealPercent) || payoutRealPercent < 0 || payoutRealPercent > 100) {
                 alert('Por favor ingresa un payout real válido (0-100%)');
                 return;
@@ -2122,12 +2142,12 @@
             if (!confirm(confirmMessage)) return;
 
             try {
-                const requestBody = { 
+                const requestBody = {
                     result,
                     currency_pair: currencyPair,
                     payout_real: payoutReal
                 };
-                
+
                 // Agregar pnl_real solo si se proporcionó
                 if (pnlReal !== null) {
                     requestBody.pnl_real = pnlReal;
@@ -2147,7 +2167,7 @@
                     if (pnlRealInput) {
                         pnlRealInput.value = '';
                     }
-                    
+
                     // Actualizar currentSession con los datos del backend
                     currentSession = {
                         ...currentSession,
@@ -2162,14 +2182,14 @@
                         maxDailyLoss: data.maxDailyLoss,
                         isTargetHit: data.isTargetHit
                     };
-                    
+
                     // Limpiar selector
                     if (select) select.value = '';
                     if (custom) custom.value = '';
                     if (custom.style.display !== 'none') {
                         toggleCustomPair();
                     }
-                    
+
                     // Renderizar directamente con los datos actualizados del backend
                     // No recargar desde el servidor para evitar recalcular nextStake incorrectamente
                     renderCurrentSession();
@@ -2189,7 +2209,7 @@
             try {
                 const response = await fetch(`${API_BASE}/statistics/trader`, { credentials: 'include' });
                 const data = await response.json();
-                
+
                 if (data.success) {
                     renderTraderStatistics(data);
                 } else {
@@ -2203,7 +2223,7 @@
 
         function renderTraderStatistics(data) {
             const { statistics, periods } = data;
-            
+
             let html = `
                 <div class="card">
                     <h3>Resumen General</h3>
@@ -2305,10 +2325,10 @@
 
         async function downloadSessionExcel(sessionId) {
             try {
-                const response = await fetch(`${API_BASE}/statistics/trader/sessions/${sessionId}/excel`, { 
-                    credentials: 'include' 
+                const response = await fetch(`${API_BASE}/statistics/trader/sessions/${sessionId}/excel`, {
+                    credentials: 'include'
                 });
-                
+
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -2333,7 +2353,7 @@
             try {
                 const response = await fetch(`${API_BASE}/statistics/admin`, { credentials: 'include' });
                 const data = await response.json();
-                
+
                 if (response.status === 403 || (data && !data.success && data.error && data.error.includes('permisos'))) {
                     document.getElementById('adminStatisticsContent').innerHTML = `
                         <div class="error-message" style="padding: 20px; text-align: center;">
@@ -2351,7 +2371,7 @@
                     `;
                     return;
                 }
-                
+
                 if (data.success) {
                     renderAdminStatistics(data);
                 } else {
@@ -2374,7 +2394,7 @@
 
         function renderAdminStatistics(data) {
             const { globalStats, userStatistics } = data;
-            
+
             let html = `
                 <div class="card">
                     <h3>Estadísticas Globales</h3>
@@ -2459,7 +2479,7 @@
             try {
                 const response = await fetch(`${API_BASE}/statistics/admin/users/${userId}`, { credentials: 'include' });
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showUserDetailsModal(data.user);
                 } else {
@@ -2503,7 +2523,7 @@
 
             if (user.periods && user.periods.length > 0) {
                 html += `<h3 style="margin-top: 20px;">Periodos y Sesiones</h3>`;
-                
+
                 user.periods.forEach(period => {
                     html += `
                         <div class="card" style="margin-bottom: 20px;">
@@ -2547,8 +2567,8 @@
                                 </div>
                                 
                                 ${period.sessions.map(session => {
-                                    if (session.trades && session.trades.length > 0) {
-                                        return `
+                        if (session.trades && session.trades.length > 0) {
+                            return `
                                             <details style="margin-top: 15px;">
                                                 <summary style="cursor: pointer; font-weight: bold;">Operaciones de ${formatDateForDisplay(session.date)} (${session.trades.length})</summary>
                                                 <div style="overflow-x: auto; margin-top: 10px;">
@@ -2567,20 +2587,20 @@
                                                         </thead>
                                                         <tbody>
                                                             ${session.trades.map(trade => {
-                                                                const tradeDate = new Date(trade.created_at);
-                                                                const timeStr = tradeDate.toLocaleTimeString('es-CO', { 
-                                                                    timeZone: 'America/Bogota',
-                                                                    hour: '2-digit', 
-                                                                    minute: '2-digit', 
-                                                                    second: '2-digit' 
-                                                                });
-                                                                const dateStr = tradeDate.toLocaleDateString('es-CO', {
-                                                                    timeZone: 'America/Bogota',
-                                                                    year: 'numeric',
-                                                                    month: '2-digit',
-                                                                    day: '2-digit'
-                                                                });
-                                                                return `
+                                const tradeDate = new Date(trade.created_at);
+                                const timeStr = tradeDate.toLocaleTimeString('es-CO', {
+                                    timeZone: 'America/Bogota',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                });
+                                const dateStr = tradeDate.toLocaleDateString('es-CO', {
+                                    timeZone: 'America/Bogota',
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit'
+                                });
+                                return `
                                                                     <tr>
                                                                         <td>${trade.trade_number}</td>
                                                                         <td>${dateStr} ${timeStr}</td>
@@ -2592,15 +2612,15 @@
                                                                         <td>${trade.martingale_step}</td>
                                                                     </tr>
                                                                 `;
-                                                            }).join('')}
+                            }).join('')}
                                                         </tbody>
                                                     </table>
                                                 </div>
                                             </details>
                                         `;
-                                    }
-                                    return '';
-                                }).join('')}
+                        }
+                        return '';
+                    }).join('')}
                             ` : '<p>No hay sesiones en este periodo.</p>'}
                         </div>
                     `;
@@ -2683,14 +2703,14 @@
                 if (data.success) {
                     closeModal('closeSession');
                     alert('Sesión cerrada exitosamente. El capital actual se ha guardado y será el capital inicial del próximo día.');
-                    
+
                     // Actualizar la sesión actual con el estado cerrado
                     currentSession = {
                         ...currentSession,
                         status: 'closed',
                         ending_capital: data.session.ending_capital || (parseFloat(currentSession.starting_capital) + parseFloat(currentSession.daily_pnl))
                     };
-                    
+
                     // Re-renderizar la sesión para mostrar el estado cerrado
                     renderCurrentSession();
                 } else {
@@ -2748,7 +2768,7 @@
         async function openProjectedPnLModal(periodId) {
             document.getElementById('projectedPnLModal').style.display = 'block';
             document.getElementById('projectedPnLContent').innerHTML = '<p>Cargando proyección...</p>';
-            
+
             try {
                 const response = await fetch(`${API_BASE}/periods/${periodId}`, { credentials: 'include' });
                 const data = await response.json();
@@ -2766,19 +2786,19 @@
             const startDate = new Date(period.start_date + 'T00:00:00');
             const endDate = new Date(period.end_date + 'T00:00:00');
             const dailyTargetPct = parseFloat(period.daily_target_pct);
-            
+
             let currentCapital = parseFloat(period.initial_capital);
             const projection = [];
             let totalProjectedPnL = 0;
-            
+
             const currentDate = new Date(startDate);
             let dayNumber = 1;
-            
+
             while (currentDate <= endDate) {
                 const dailyTarget = currentCapital * dailyTargetPct;
                 const projectedCapital = currentCapital + dailyTarget;
                 totalProjectedPnL += dailyTarget;
-                
+
                 projection.push({
                     day: dayNumber,
                     date: new Date(currentDate),
@@ -2786,12 +2806,12 @@
                     dailyTarget: dailyTarget,
                     projectedCapital: projectedCapital
                 });
-                
+
                 currentCapital = projectedCapital;
                 currentDate.setDate(currentDate.getDate() + 1);
                 dayNumber++;
             }
-            
+
             const html = `
                 <div class="card">
                     <h3>Proyección de PnL - Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''}</h3>
@@ -2842,14 +2862,14 @@
                     </table>
                 </div>
             `;
-            
+
             document.getElementById('projectedPnLContent').innerHTML = html;
         }
 
         async function openRealPnLModal(periodId) {
             document.getElementById('realPnLModal').style.display = 'block';
             document.getElementById('realPnLContent').innerHTML = '<p>Cargando datos...</p>';
-            
+
             try {
                 const response = await fetch(`${API_BASE}/periods/${periodId}`, { credentials: 'include' });
                 const data = await response.json();
@@ -2867,13 +2887,13 @@
             const startDate = new Date(period.start_date + 'T00:00:00');
             const endDate = new Date(period.end_date + 'T00:00:00');
             const dailyTargetPct = parseFloat(period.daily_target_pct);
-            
+
             // Calcular proyección
             let projectedCapital = parseFloat(period.initial_capital);
             const projection = [];
             const currentDate = new Date(startDate);
             let dayNumber = 1;
-            
+
             while (currentDate <= endDate) {
                 const dailyTarget = projectedCapital * dailyTargetPct;
                 projection.push({
@@ -2886,7 +2906,7 @@
                 currentDate.setDate(currentDate.getDate() + 1);
                 dayNumber++;
             }
-            
+
             // Obtener datos reales de sesiones
             const sessions = period.sessions || [];
             const realData = {};
@@ -2897,7 +2917,7 @@
                     status: session.status
                 };
             });
-            
+
             // Combinar datos
             const combinedData = projection.map(proj => {
                 const real = realData[proj.date] || null;
@@ -2911,18 +2931,18 @@
                     hasData: real !== null
                 };
             });
-            
+
             // Calcular totales
             const totalProjectedPnL = projection.reduce((sum, p) => sum + p.projectedPnL, 0);
             const totalRealPnL = sessions.reduce((sum, s) => sum + parseFloat(s.daily_pnl || 0), 0);
             const finalProjectedCapital = parseFloat(period.initial_capital) + totalProjectedPnL;
             const finalRealCapital = parseFloat(period.current_capital);
-            
+
             // Preparar datos para la gráfica
             const chartLabels = combinedData.map(d => formatDateForDisplay(d.date));
             const projectedPnLData = combinedData.map(d => d.projectedPnL);
             const realPnLData = combinedData.map(d => d.realPnL !== null ? d.realPnL : null);
-            
+
             const html = `
                 <div class="card">
                     <h3>PnL Real vs Proyectado - Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''}</h3>
@@ -2977,8 +2997,8 @@
                         </thead>
                         <tbody>
                             ${combinedData.map(d => {
-                                const diff = d.realPnL !== null ? (d.realPnL - d.projectedPnL) : null;
-                                return `
+                const diff = d.realPnL !== null ? (d.realPnL - d.projectedPnL) : null;
+                return `
                                 <tr style="${d.hasData ? '' : 'opacity: 0.6;'}">
                                     <td>${d.day}</td>
                                     <td>${formatDateForDisplay(d.date)}</td>
@@ -2996,14 +3016,14 @@
                                     </td>
                                 </tr>
                             `;
-                            }).join('')}
+            }).join('')}
                         </tbody>
                     </table>
                 </div>
             `;
-            
+
             document.getElementById('realPnLContent').innerHTML = html;
-            
+
             // Crear gráfica después de que el HTML esté en el DOM
             setTimeout(() => {
                 const ctx = document.getElementById('pnlChart');
@@ -3042,7 +3062,7 @@
                                     mode: 'index',
                                     intersect: false,
                                     callbacks: {
-                                        label: function(context) {
+                                        label: function (context) {
                                             let label = context.dataset.label || '';
                                             if (label) {
                                                 label += ': ';
@@ -3061,7 +3081,7 @@
                                 y: {
                                     beginAtZero: true,
                                     ticks: {
-                                        callback: function(value) {
+                                        callback: function (value) {
                                             return '$' + value.toFixed(2);
                                         }
                                     }
@@ -3079,7 +3099,7 @@
             }, 100);
         }
 
-        window.onclick = function(event) {
+        window.onclick = function (event) {
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = 'none';
             }
@@ -3087,8 +3107,8 @@
     </script>
 
     <!-- Socket.io Client -->
-    <script src="/socket.io/socket.io.js"></script>
-    
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
     <!-- Telegram Signals Script -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -3127,7 +3147,7 @@
             async function loadInitialMessages() {
                 container.innerHTML = '<div class="loading">Cargando mensajes...</div>';
                 try {
-                    const res = await fetch('/api/telegram/messages?limit=100', { credentials: 'include' });
+                    const res = await fetch(`${API_BASE}/telegram/messages?limit=100`, { credentials: 'include' });
                     if (!res.ok) {
                         if (res.status === 503) {
                             container.innerHTML = '<div class="error">El visor de señales no está disponible. Verifica la configuración de Telegram en el servidor.</div>';
@@ -3168,25 +3188,32 @@
 
             function connectSocket() {
                 if (socketConnected) return;
-                
+
                 try {
-                    socket = io();
-                    
+                    // Determinar URL del backend para socket
+                    const isProd = window.location.origin.includes('traderoom.soyjonnymelendez.net');
+                    const backendUrl = isProd
+                        ? 'https://backtrade.soyjonnymelendez.net'
+                        : (window.location.port === '3000' ? window.location.origin : 'http://' + window.location.hostname + ':3000');
+
+                    console.log('Conectando socket a:', backendUrl);
+                    socket = io(backendUrl);
+
                     socket.on('connect', () => {
                         socketConnected = true;
                         console.log('✅ Conectado a WebSocket para señales de Telegram');
                     });
-                    
+
                     socket.on('telegram:new_message', (msg) => {
                         addMessageToContainer(msg);
                         container.scrollTop = container.scrollHeight;
                     });
-                    
+
                     socket.on('disconnect', () => {
                         socketConnected = false;
                         console.log('❌ Desconectado de WebSocket');
                     });
-                    
+
                     socket.on('connect_error', (error) => {
                         console.error('❌ Error de conexión WebSocket:', error);
                     });
