@@ -631,18 +631,22 @@
             width: 90%;
             max-width: 800px;
             max-height: 80vh;
-            border-radius: 8px;
+            border-radius: 12px;
             display: flex;
             flex-direction: column;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            border: 1px solid #374151;
         }
 
         .modal-overlay .modal-header {
-            padding: 16px 20px;
+            padding: 16px 24px;
             border-bottom: 1px solid #374151;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: #111827;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
         }
 
         .modal-overlay .modal-header h3 {
@@ -650,6 +654,9 @@
             font-size: 18px;
             font-weight: 600;
             color: #f9fafb;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .modal-close {
@@ -664,8 +671,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 4px;
-            transition: background 0.2s;
+            border-radius: 6px;
+            transition: all 0.2s;
         }
 
         .modal-close:hover {
@@ -674,29 +681,36 @@
         }
 
         .modal-overlay .modal-body {
-            padding: 16px 20px;
+            padding: 20px;
             overflow: hidden;
             flex: 1;
+            background: #111827;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            display: flex;
+            flex-direction: column;
         }
 
         .signals-messages-container {
-            max-height: 60vh;
+            flex: 1;
             overflow-y: auto;
             padding-right: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
         .signals-messages-container::-webkit-scrollbar {
-            width: 8px;
+            width: 6px;
         }
 
         .signals-messages-container::-webkit-scrollbar-track {
-            background: #111827;
-            border-radius: 4px;
+            background: transparent;
         }
 
         .signals-messages-container::-webkit-scrollbar-thumb {
             background: #4b5563;
-            border-radius: 4px;
+            border-radius: 3px;
         }
 
         .signals-messages-container::-webkit-scrollbar-thumb:hover {
@@ -704,27 +718,76 @@
         }
 
         .signal-message {
-            background: #111827;
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 8px;
-            border-left: 3px solid #010332;
+            background: #1f2937;
+            border-radius: 12px;
+            border-bottom-left-radius: 4px;
+            /* Chat bubble style */
+            padding: 16px;
+            max-width: 85%;
+            align-self: flex-start;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            animation: fadeInMessage 0.3s ease-out;
+            border: 1px solid #374151;
+        }
+
+        @keyframes fadeInMessage {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .signal-message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
             font-size: 12px;
+            gap: 10px;
+        }
+
+        .signal-sender {
+            font-weight: 600;
+            color: #60a5fa;
+            /* Blue accent like example */
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .signal-time {
             color: #9ca3af;
-            margin-bottom: 6px;
-            font-weight: 500;
+            font-size: 11px;
         }
 
         .signal-text {
             white-space: pre-wrap;
-            font-family: inherit;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             font-size: 14px;
             color: #e5e7eb;
             margin: 0;
-            line-height: 1.5;
+            line-height: 1.6;
+        }
+
+        .signal-badge-expired {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 10px;
+            animation: fadeIn 0.3s ease;
         }
 
         .signals-messages-container .loading,
@@ -734,10 +797,15 @@
             padding: 40px 20px;
             color: #9ca3af;
             font-size: 14px;
+            align-self: center;
+            width: 100%;
         }
 
         .signals-messages-container .error {
             color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 8px;
+            margin: 20px;
         }
 
         /* Trading Controls */
@@ -3184,15 +3252,54 @@
             if (!signalsContainer) return;
             const div = document.createElement('div');
             div.className = 'signal-message';
+
             const dateStr = msg.date || new Date().toISOString();
             const date = new Date(dateStr);
+            const timeStr = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            // Structure: Header (Sender + Time), Content, Badge
             div.innerHTML = `
-                    <div class="signal-message-header">
-                        <span class="signal-time">${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                    </div>
-                    <pre class="signal-text">${escapeHtml(msg.text)}</pre>
-                `;
+                <div class="signal-message-header">
+                    <span class="signal-sender"><i class="fab fa-telegram-plane"></i> Canal Señales</span>
+                    <span class="signal-time">${timeStr}</span>
+                </div>
+                <pre class="signal-text">${escapeHtml(msg.text)}</pre>
+                <div class="signal-badge-expired" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i> Señal Expirada (>2 min)
+                </div>
+            `;
+
             signalsContainer.appendChild(div);
+
+            // Check expiration logic
+            checkExpiration(div, date);
+        }
+
+        function checkExpiration(messageElement, messageDate) {
+            const badge = messageElement.querySelector('.signal-badge-expired');
+            if (!badge) return;
+
+            const EXPIRATION_TIME_MS = 2 * 60 * 1000; // 2 minutes
+
+            const updateStatus = () => {
+                const now = new Date();
+                const diff = now - messageDate;
+
+                if (diff > EXPIRATION_TIME_MS) {
+                    badge.style.display = 'inline-flex';
+                } else {
+                    badge.style.display = 'none';
+                    // Schedule next check
+                    const remaining = EXPIRATION_TIME_MS - diff;
+                    if (remaining > 0) {
+                        setTimeout(() => {
+                            badge.style.display = 'inline-flex';
+                        }, remaining);
+                    }
+                }
+            };
+
+            updateStatus();
         }
 
         function connectSocket() {
