@@ -3111,123 +3111,134 @@
 
     <!-- Telegram Signals Script -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const openBtn = document.getElementById('btn-open-signals-modal');
-            const closeBtn = document.getElementById('btn-close-signals-modal');
-            const modal = document.getElementById('signals-modal');
-            const container = document.getElementById('signals-messages-container');
+        // Variables globales para el visor de señales
+        let signalsSocket = null;
+        let signalsSocketConnected = false;
 
-            if (!openBtn || !modal || !container) return;
+        // Elementos estáticos
+        const signalsModal = document.getElementById('signals-modal');
+        const signalsContainer = document.getElementById('signals-messages-container');
+        const signalsCloseBtn = document.getElementById('btn-close-signals-modal');
 
-            let socketConnected = false;
-            let socket;
+        // Función para abrir el modal
+        window.openSignalsModal = function () {
+            if (!signalsModal) return;
+            signalsModal.classList.remove('hidden');
+            loadInitialMessages();
+            connectSocket();
+        };
 
-            function openModal() {
-                modal.classList.remove('hidden');
-                loadInitialMessages();
-                connectSocket();
-            }
-
-            function closeModal() {
-                modal.classList.add('hidden');
-                if (socket && socketConnected) {
-                    socket.disconnect();
-                    socketConnected = false;
-                }
-            }
-
-            openBtn.addEventListener('click', openModal);
-            if (closeBtn) {
-                closeBtn.addEventListener('click', closeModal);
-            }
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) closeModal();
-            });
-
-            async function loadInitialMessages() {
-                container.innerHTML = '<div class="loading">Cargando mensajes...</div>';
+        // Función para cerrar el modal
+        window.closeSignalsModal = function () {
+            if (!signalsModal) return;
+            signalsModal.classList.add('hidden');
+            if (signalsSocket && signalsSocketConnected) {
                 try {
-                    const res = await fetch(`${API_BASE}/telegram/messages?limit=100`, { credentials: 'include' });
-                    if (!res.ok) {
-                        if (res.status === 503) {
-                            container.innerHTML = '<div class="error">El visor de señales no está disponible. Verifica la configuración de Telegram en el servidor.</div>';
-                            return;
-                        }
-                        throw new Error('Error al cargar mensajes');
+                    signalsSocket.disconnect();
+                } catch (e) { console.error(e); }
+                signalsSocketConnected = false;
+            }
+        };
+
+        // Event Delegation
+        document.addEventListener('click', (e) => {
+            const openBtn = e.target.closest('#btn-open-signals-modal');
+            if (openBtn) openSignalsModal();
+            if (e.target === signalsModal) closeSignalsModal();
+        });
+
+        if (signalsCloseBtn) signalsCloseBtn.addEventListener('click', closeSignalsModal);
+
+        async function loadInitialMessages() {
+            if (!signalsContainer) return;
+            signalsContainer.innerHTML = '<div class="loading">Cargando mensajes...</div>';
+            try {
+                const res = await fetch(`${API_BASE}/telegram/messages?limit=100`, { credentials: 'include' });
+                if (!res.ok) {
+                    if (res.status === 503) {
+                        signalsContainer.innerHTML = '<div class="error">El visor de señales no está disponible. Verifica la configuración de Telegram en el servidor.</div>';
+                        return;
                     }
-                    const messages = await res.json();
-                    renderMessages(messages.reverse());
-                } catch (err) {
-                    console.error(err);
-                    container.innerHTML = '<div class="error">No se pudieron cargar las señales. Verifica la conexión al servidor.</div>';
+                    throw new Error('Error al cargar mensajes');
                 }
+                const messages = await res.json();
+                renderMessages(messages.reverse());
+            } catch (err) {
+                console.error(err);
+                signalsContainer.innerHTML = '<div class="error">No se pudieron cargar las señales. Verifica la conexión al servidor.</div>';
             }
+        }
 
-            function renderMessages(messages) {
-                container.innerHTML = '';
-                if (messages.length === 0) {
-                    container.innerHTML = '<div class="no-messages">No hay mensajes aún. Los mensajes aparecerán aquí cuando lleguen al canal de Telegram.</div>';
-                    return;
-                }
-                messages.forEach(addMessageToContainer);
-                container.scrollTop = container.scrollHeight;
+        function renderMessages(messages) {
+            if (!signalsContainer) return;
+            signalsContainer.innerHTML = '';
+            if (messages.length === 0) {
+                signalsContainer.innerHTML = '<div class="no-messages">No hay mensajes aún. Los mensajes aparecerán aquí cuando lleguen al canal de Telegram.</div>';
+                return;
             }
+            messages.forEach(addMessageToContainer);
+            signalsContainer.scrollTop = signalsContainer.scrollHeight;
+        }
 
-            function addMessageToContainer(msg) {
-                const div = document.createElement('div');
-                div.className = 'signal-message';
-                const date = new Date(msg.date);
-                div.innerHTML = `
+        function addMessageToContainer(msg) {
+            if (!signalsContainer) return;
+            const div = document.createElement('div');
+            div.className = 'signal-message';
+            const dateStr = msg.date || new Date().toISOString();
+            const date = new Date(dateStr);
+            div.innerHTML = `
                     <div class="signal-message-header">
                         <span class="signal-time">${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                     </div>
                     <pre class="signal-text">${escapeHtml(msg.text)}</pre>
                 `;
-                container.appendChild(div);
+            signalsContainer.appendChild(div);
+        }
+
+        function connectSocket() {
+            if (signalsSocketConnected) return;
+
+            try {
+                // Determinar URL del backend para socket
+                const isProd = window.location.origin.includes('traderoom.soyjonnymelendez.net');
+                const backendUrl = isProd
+                    ? 'https://backtrade.soyjonnymelendez.net'
+                    : (window.location.port === '3000' ? window.location.origin : 'http://' + window.location.hostname + ':3000');
+
+                console.log('Conectando socket de señales a:', backendUrl);
+                signalsSocket = io(backendUrl);
+
+                signalsSocket.on('connect', () => {
+                    signalsSocketConnected = true;
+                    console.log('✅ Conectado a WebSocket para señales de Telegram');
+                });
+
+                signalsSocket.on('telegram:new_message', (msg) => {
+                    addMessageToContainer(msg);
+                    if (signalsContainer) {
+                        signalsContainer.scrollTop = signalsContainer.scrollHeight;
+                    }
+                });
+
+                signalsSocket.on('disconnect', () => {
+                    signalsSocketConnected = false;
+                    console.log('❌ Desconectado de WebSocket');
+                });
+
+                signalsSocket.on('connect_error', (error) => {
+                    console.error('❌ Error de conexión WebSocket:', error);
+                });
+            } catch (error) {
+                console.error('❌ Error al conectar WebSocket:', error);
             }
+        }
 
-            function connectSocket() {
-                if (socketConnected) return;
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
-                try {
-                    // Determinar URL del backend para socket
-                    const isProd = window.location.origin.includes('traderoom.soyjonnymelendez.net');
-                    const backendUrl = isProd
-                        ? 'https://backtrade.soyjonnymelendez.net'
-                        : (window.location.port === '3000' ? window.location.origin : 'http://' + window.location.hostname + ':3000');
-
-                    console.log('Conectando socket a:', backendUrl);
-                    socket = io(backendUrl);
-
-                    socket.on('connect', () => {
-                        socketConnected = true;
-                        console.log('✅ Conectado a WebSocket para señales de Telegram');
-                    });
-
-                    socket.on('telegram:new_message', (msg) => {
-                        addMessageToContainer(msg);
-                        container.scrollTop = container.scrollHeight;
-                    });
-
-                    socket.on('disconnect', () => {
-                        socketConnected = false;
-                        console.log('❌ Desconectado de WebSocket');
-                    });
-
-                    socket.on('connect_error', (error) => {
-                        console.error('❌ Error de conexión WebSocket:', error);
-                    });
-                } catch (error) {
-                    console.error('❌ Error al conectar WebSocket:', error);
-                }
-            }
-
-            function escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-        });
     </script>
 </body>
 
