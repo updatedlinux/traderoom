@@ -2320,8 +2320,33 @@
                         <span class="stat-value negative">${statistics.sessionsWithStop}</span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">Tasa de Éxito:</span>
-                        <span class="stat-value">${statistics.winRate}%</span>
+                        <span class="stat-label">Sesiones Ganadoras (%) :</span>
+                        <span class="stat-value">${statistics.sessionWinRate}%</span>
+                    </div>
+                    
+                    <div style="margin: 20px 0 10px 0; border-top: 1px solid rgba(1, 3, 50, 0.1); padding-top: 10px;">
+                        <h4 style="color: #010332; margin-bottom: 10px;">Análisis de Operaciones</h4>
+                    </div>
+                    
+                    <div class="stat-row">
+                        <span class="stat-label">Efectividad por Trade:</span>
+                        <span class="stat-value" style="font-weight: bold; color: #00A86B;">${statistics.winRateByTrade}%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Trades ITM / OTM:</span>
+                        <span class="stat-value">${statistics.tradesITM} / ${statistics.tradesOTM}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Factor de Beneficio (Profit Factor):</span>
+                        <span class="stat-value" style="color: ${parseFloat(statistics.profitFactor) >= 1.5 ? '#00A86B' : (parseFloat(statistics.profitFactor) >= 1 ? '#FFA500' : '#dc3545')}">${statistics.profitFactor}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Expectativa Matemática:</span>
+                        <span class="stat-value ${parseFloat(statistics.expectancy) >= 0 ? 'positive' : 'negative'}">$${statistics.expectancy}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Drawdown Máximo:</span>
+                        <span class="stat-value negative">${statistics.maxDrawdown}%</span>
                     </div>
                 </div>
 
@@ -2855,7 +2880,7 @@
             const endDate = new Date(period.end_date + 'T00:00:00');
             const dailyTargetPct = parseFloat(period.daily_target_pct);
             const sessions = period.sessions || [];
-            
+
             // Mapear sesiones reales para acceso rápido
             const realSessions = {};
             sessions.forEach(s => {
@@ -2865,14 +2890,14 @@
             const projection = [];
             let totalProjectedPnL = 0;
             let currentCapitalFlow = parseFloat(period.initial_capital);
-            
+
             const currentDate = new Date(startDate);
             let dayNumber = 1;
 
             while (currentDate <= endDate) {
                 const dateStr = currentDate.toISOString().split('T')[0];
                 const realSession = realSessions[dateStr];
-                
+
                 // Si hay sesión real, usamos su capital inicial real (o el final del día anterior)
                 // En TradeRoom, el starting_capital de una sesión es el current_capital del periodo en ese momento.
                 let sessionInitialCapital = currentCapitalFlow;

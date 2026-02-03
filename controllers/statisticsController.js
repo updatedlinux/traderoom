@@ -31,22 +31,63 @@ const getTraderStatistics = async (req, res) => {
       order: [['start_date', 'DESC']]
     });
 
-    // Calcular estadísticas agregadas
+    // Calcular estadísticas agregadas y avanzadas
     let totalSessions = 0;
     let totalTrades = 0;
     let totalPnL = 0;
     let sessionsWithTarget = 0;
     let sessionsWithStop = 0;
 
+    // Métricas por Operación
+    let tradesITM = 0;
+    let tradesOTM = 0;
+    let totalProfit = 0;
+    let totalLoss = 0;
+    let periodMaxDrawdown = 0;
+
     periods.forEach(period => {
+      let currentDrawdown = 0;
+      let peakCapital = parseFloat(period.initial_capital);
+      let runningCapital = parseFloat(period.initial_capital);
+
       period.sessions.forEach(session => {
         totalSessions++;
         totalTrades += session.num_trades || 0;
         totalPnL += parseFloat(session.daily_pnl || 0);
+
         if (session.status === 'target_hit') sessionsWithTarget++;
         if (session.status === 'stopped_loss') sessionsWithStop++;
+
+        // Procesar trades para métricas avanzadas
+        if (session.trades && session.trades.length > 0) {
+          session.trades.forEach(trade => {
+            if (trade.result === 'ITM') {
+              tradesITM++;
+              totalProfit += parseFloat(trade.pnl || 0);
+            } else if (trade.result === 'OTM') {
+              tradesOTM++;
+              totalLoss += Math.abs(parseFloat(trade.pnl || 0));
+            }
+          });
+        }
+
+        // Cálculo de Drawdown Máximo (simplificado por sesión)
+        runningCapital = parseFloat(session.starting_capital) + parseFloat(session.daily_pnl || 0);
+        if (runningCapital > peakCapital) {
+          peakCapital = runningCapital;
+        }
+        currentDrawdown = peakCapital > 0 ? ((peakCapital - runningCapital) / peakCapital) * 100 : 0;
+        if (currentDrawdown > periodMaxDrawdown) {
+          periodMaxDrawdown = currentDrawdown;
+        }
       });
     });
+
+    const winRateByTrade = totalTrades > 0 ? (tradesITM / totalTrades) * 100 : 0;
+    const profitFactor = totalLoss > 0 ? (totalProfit / totalLoss) : totalProfit > 0 ? 100 : 0; // 100 es un valor simbólico para "infinito"
+    const avgWin = tradesITM > 0 ? totalProfit / tradesITM : 0;
+    const avgLoss = tradesOTM > 0 ? totalLoss / tradesOTM : 0;
+    const expectancy = (winRateByTrade / 100 * avgWin) - ((1 - (winRateByTrade / 100)) * avgLoss);
 
     res.json({
       success: true,
@@ -57,7 +98,14 @@ const getTraderStatistics = async (req, res) => {
         totalPnL: totalPnL.toFixed(2),
         sessionsWithTarget,
         sessionsWithStop,
-        winRate: totalSessions > 0 ? ((sessionsWithTarget / totalSessions) * 100).toFixed(2) : 0
+        sessionWinRate: totalSessions > 0 ? ((sessionsWithTarget / totalSessions) * 100).toFixed(2) : 0,
+        // Nuevas métricas avanzadas
+        winRateByTrade: winRateByTrade.toFixed(2),
+        profitFactor: profitFactor.toFixed(2),
+        expectancy: expectancy.toFixed(2),
+        maxDrawdown: periodMaxDrawdown.toFixed(2),
+        tradesITM,
+        tradesOTM
       },
       periods: periods.map(period => ({
         ...period.toJSON(),
@@ -121,7 +169,7 @@ const generateSessionExcel = async (req, res) => {
 
     // Hoja 1: Información General
     const infoSheet = workbook.addWorksheet('Información');
-    
+
     // Estilos
     const headerStyle = {
       font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
@@ -267,7 +315,7 @@ const generateSessionExcel = async (req, res) => {
 
     // Hoja 2: Operaciones
     const tradesSheet = workbook.addWorksheet('Operaciones');
-    
+
     // Encabezados
     tradesSheet.getRow(1).values = ['#', 'Fecha y Hora', 'Par de Divisas', 'Stake', 'Resultado', 'Payout (%)', 'PnL', 'Capital Después', 'Martingala'];
     tradesSheet.getRow(1).font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
@@ -284,11 +332,11 @@ const generateSessionExcel = async (req, res) => {
       trades.forEach((trade, index) => {
         const row = tradesSheet.getRow(index + 2);
         const tradeDate = new Date(trade.created_at);
-        const timeStr = tradeDate.toLocaleTimeString('es-CO', { 
+        const timeStr = tradeDate.toLocaleTimeString('es-CO', {
           timeZone: 'America/Bogota',
-          hour: '2-digit', 
-          minute: '2-digit', 
-          second: '2-digit' 
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
         });
         const dateStr = tradeDate.toLocaleDateString('es-CO', {
           timeZone: 'America/Bogota',
@@ -380,7 +428,7 @@ const generateSessionExcel = async (req, res) => {
       // Nota: ExcelJS no soporta gráficas de forma nativa
       // Los datos están preparados para que el usuario pueda crear gráficas manualmente en Excel
       // o usar Excel para generar gráficas automáticamente desde los datos
-      
+
       // Agregar título para la sección de gráficas
       chartsSheet.getCell('A' + (trades.length + 3)).value = 'NOTA:';
       chartsSheet.getCell('A' + (trades.length + 3)).font = { bold: true, size: 12, color: { argb: 'FF00568E' } };
@@ -388,7 +436,7 @@ const generateSessionExcel = async (req, res) => {
       chartsSheet.getCell('A' + (trades.length + 4)).font = { size: 10 };
       chartsSheet.getCell('A' + (trades.length + 5)).value = 'Selecciona los datos y usa Insertar > Gráfica en Excel.';
       chartsSheet.getCell('A' + (trades.length + 5)).font = { size: 10 };
-      
+
       // Preparar datos para gráfica de distribución ITM vs OTM
       const itmCount = trades.filter(t => t.result === 'ITM').length;
       const otmCount = trades.filter(t => t.result === 'OTM').length;
@@ -413,7 +461,7 @@ const generateSessionExcel = async (req, res) => {
       chartsSheet.getCell('F2').value = itmCount;
       chartsSheet.getCell('E3').value = 'OTM';
       chartsSheet.getCell('F3').value = otmCount;
-      
+
       // Agregar instrucciones para crear gráficas
       chartsSheet.getCell('E' + (trades.length + 3)).value = 'Para crear gráfica de pastel:';
       chartsSheet.getCell('E' + (trades.length + 3)).font = { bold: true, size: 10 };
@@ -421,14 +469,14 @@ const generateSessionExcel = async (req, res) => {
       chartsSheet.getCell('E' + (trades.length + 4)).font = { size: 9 };
       chartsSheet.getCell('E' + (trades.length + 5)).value = '2. Insertar > Gráfica de Pastel';
       chartsSheet.getCell('E' + (trades.length + 5)).font = { size: 9 };
-      
+
       chartsSheet.getCell('A' + (trades.length + 7)).value = 'Para crear gráfica de línea (Capital):';
       chartsSheet.getCell('A' + (trades.length + 7)).font = { bold: true, size: 10 };
       chartsSheet.getCell('A' + (trades.length + 8)).value = '1. Selecciona A1:B' + (trades.length + 1);
       chartsSheet.getCell('A' + (trades.length + 8)).font = { size: 9 };
       chartsSheet.getCell('A' + (trades.length + 9)).value = '2. Insertar > Gráfica de Línea';
       chartsSheet.getCell('A' + (trades.length + 9)).font = { size: 9 };
-      
+
       chartsSheet.getCell('A' + (trades.length + 11)).value = 'Para crear gráfica de línea (PnL Acumulado):';
       chartsSheet.getCell('A' + (trades.length + 11)).font = { bold: true, size: 10 };
       chartsSheet.getCell('A' + (trades.length + 12)).value = '1. Selecciona A1:C' + (trades.length + 1);
@@ -467,7 +515,7 @@ const generateSessionExcel = async (req, res) => {
  */
 const getAdminStatistics = async (req, res) => {
   try {
-    
+
     // Obtener todos los usuarios traders
     const traders = await User.findAll({
       where: { role: 'trader' },
