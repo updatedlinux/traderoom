@@ -1343,7 +1343,7 @@
     <div id="signals-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📡 Señales en vivo (Telegram)</h3>
+                <h3 id="signals-modal-title">📡 Señales en vivo (Telegram)</h3>
                 <button id="btn-close-signals-modal" class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
@@ -2153,6 +2153,14 @@
                             Si el broker redondea el monto (ej: $8.87 → $9), ingresa aquí el PnL real obtenido. 
                             Si se deja vacío, se calculará automáticamente con el monto y payout indicados.
                         </small>
+                    </div>
+                    <div class="card-action">
+                        <button class="btn btn-primary btn-full" onclick="openSignalsModal('pocket')">
+                            <i class="fas fa-robot"></i> Ver Señales de Bot Pocket En vivo
+                        </button>
+                        <button class="btn btn-secondary btn-full" style="margin-top: 10px; background-color: #6f42c1; color: white;" onclick="openSignalsModal('magic')">
+                            <i class="fas fa-magic"></i> Ver Señales de Trader Magico
+                        </button>
                     </div>
                     <div class="trading-controls">
                         <button class="btn trade-result-btn itm" onclick="registerTrade('ITM')">
@@ -3490,10 +3498,23 @@
         const signalsModal = document.getElementById('signals-modal');
         const signalsContainer = document.getElementById('signals-messages-container');
         const signalsCloseBtn = document.getElementById('btn-close-signals-modal');
+        let currentSignalSource = 'pocket'; // 'pocket' or 'magic'
 
         // Función para abrir el modal
-        window.openSignalsModal = function () {
+        window.openSignalsModal = function (source = 'pocket') {
+            currentSignalSource = source;
             if (!signalsModal) return;
+
+            // Update Title
+            const titleEl = document.getElementById('signals-modal-title');
+            if (titleEl) {
+                if (source === 'magic') {
+                    titleEl.innerText = '✨ Señales de Trader Magico (Telegram)';
+                } else {
+                    titleEl.innerText = '🤖 Señales de Bot Pocket (Telegram)';
+                }
+            }
+
             signalsModal.classList.remove('hidden');
             loadInitialMessages();
             connectSocket();
@@ -3514,7 +3535,7 @@
         // Event Delegation
         document.addEventListener('click', (e) => {
             const openBtn = e.target.closest('#btn-open-signals-modal');
-            if (openBtn) openSignalsModal();
+            if (openBtn) openSignalsModal('pocket'); // Default to pocket if generic button
             if (e.target === signalsModal) closeSignalsModal();
         });
 
@@ -3543,27 +3564,51 @@
         function renderMessages(messages) {
             if (!signalsContainer) return;
             signalsContainer.innerHTML = '';
-            if (messages.length === 0) {
-                signalsContainer.innerHTML = '<div class="no-messages">No hay mensajes aún. Los mensajes aparecerán aquí cuando lleguen al canal de Telegram.</div>';
+
+            // Filter messages for current source before checking length
+            // But addMessageToContainer also filters. 
+            // Better to filter here to correctly show "No messages" if all are filtered out.
+            const filteredMessages = messages.filter(msg => {
+                // If source is missing (legacy messages), assume 'pocket'
+                const msgSource = msg.source || 'pocket';
+                return msgSource === currentSignalSource;
+            });
+
+            if (filteredMessages.length === 0) {
+                const channelName = currentSignalSource === 'magic' ? 'Trader Magico' : 'Bot Pocket';
+                signalsContainer.innerHTML = `<div class="no-messages">No hay mensajes aún en ${channelName}.</div>`;
                 return;
             }
-            messages.forEach(addMessageToContainer);
+
+            filteredMessages.forEach(addMessageToContainer);
             signalsContainer.scrollTop = signalsContainer.scrollHeight;
         }
 
         function addMessageToContainer(msg) {
             if (!signalsContainer) return;
+
+            // Filter logic (Double check for live socket messages)
+            const msgSource = msg.source || 'pocket';
+            if (msgSource !== currentSignalSource) return;
+
             const div = document.createElement('div');
             div.className = 'signal-message';
+
+            // Apply different style/border for Magic
+            if (msgSource === 'magic') {
+                div.style.borderLeft = '4px solid #6f42c1';
+            }
 
             const dateStr = msg.date || new Date().toISOString();
             const date = new Date(dateStr);
             const timeStr = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
+            const senderName = msgSource === 'magic' ? 'Trader Magico' : 'Canal Señales';
+
             // Structure: Header (Sender + Time), Content, Badge
             div.innerHTML = `
                 <div class="signal-message-header">
-                    <span class="signal-sender"><i class="fab fa-telegram-plane"></i> Canal Señales</span>
+                    <span class="signal-sender"><i class="fab fa-telegram-plane"></i> ${senderName}</span>
                     <span class="signal-time">${timeStr}</span>
                 </div>
                 <pre class="signal-text">${escapeHtml(msg.text)}</pre>
