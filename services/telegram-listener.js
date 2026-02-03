@@ -15,7 +15,7 @@ class TelegramSignalListener {
     this.phoneNumber = process.env.TELEGRAM_PHONE;
     this.sessionString = process.env.TELEGRAM_SESSION_STRING || '';
     this.channelId = process.env.TELEGRAM_SIGNAL_CHANNEL_ID;
-    this.magicChannelId = -1001803023509; // ID Trader Magico
+    this.magicChannelId = process.env.TELEGRAM_MAGIC_CHANNEL_ID || -1001803023509; // ID Trader Magico (fallback si no en env)
 
     // Validar que las variables requeridas estén configuradas
     if (!this.apiId || !this.apiHash || !this.phoneNumber) {
@@ -58,9 +58,9 @@ class TelegramSignalListener {
         },
         phoneCode: async () => {
           const code = await input.text('Código de verificación de Telegram: ');
-          return code;
+          return code || undefined;
         },
-        onError: (err) => console.error('❌ Error de autenticación:', err),
+        onError: (err) => console.log('Error de Telegram Client:', err),
       });
 
       console.log('✅ Conectado a Telegram');
@@ -79,12 +79,27 @@ class TelegramSignalListener {
         channelIdNum = parseInt(channelIdNum);
       }
 
+      let magicIdNum = this.magicChannelId;
+      if (typeof magicIdNum === 'string') {
+        magicIdNum = parseInt(magicIdNum);
+      }
+
       // Lista de canales a escuchar
-      const channelsToListen = [channelIdNum, this.magicChannelId];
+      const channelsToListen = [channelIdNum, magicIdNum];
 
       // Cargar diálogos para asegurar que las entidades sean conocidas (Critico para que el filtro funcione)
       console.log('📚 Cargando lista de chats para inicializar caché...');
       await this.client.getDialogs({});
+
+      // Forzar carga de entidades específicas (Extra robustez)
+      try {
+        console.log(`🔍 Resolviendo entidades explícitamente: Pocket(${channelIdNum}), Magic(${magicIdNum})`);
+        await this.client.getEntity(channelIdNum);
+        await this.client.getEntity(magicIdNum);
+        console.log('✅ Entidades resueltas y cacheadas.');
+      } catch (e) {
+        console.warn('⚠️ No se pudieron resolver entidades explícitamente (puede ser normal si ya están en caché o es primera vez):', e.message);
+      }
 
       // Registrar handler para nuevos mensajes
       // Registrar handler para nuevos mensajes
