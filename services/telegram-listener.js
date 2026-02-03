@@ -82,35 +82,17 @@ class TelegramSignalListener {
       // Lista de canales a escuchar
       const channelsToListen = [channelIdNum, this.magicChannelId];
 
-      // Cargar diálogos para asegurar que las entidades sean conocidas
-      console.log('📚 Cargando lista de chats (getDialogs) para resolver IDs...');
+      // Cargar diálogos para asegurar que las entidades sean conocidas (Critico para que el filtro funcione)
+      console.log('📚 Cargando lista de chats para inicializar caché...');
       await this.client.getDialogs({});
 
       // Registrar handler para nuevos mensajes
-      // NOTA: Quitamos el filtro 'chats' temporalmente para depurar y ver qué ID llega realmente
       this.client.addEventHandler(
         this.handleNewMessage.bind(this),
-        new NewMessage({})
+        new NewMessage({ chats: channelsToListen })
       );
 
-      console.log(`👂 Escuchando TODOS los mensajes entrantes (Modo Debug)...`);
-      console.log(`   Esperando canales: Pocket(${channelIdNum}), Magic(${this.magicChannelId})`);
-
-      // 🔍 PRUEBA DE ACCESO EXPLÍCITA
-      try {
-        console.log(`🔍 Intentando leer historial del canal Magic (${this.magicChannelId})...`);
-        const history = await this.client.getMessages(this.magicChannelId, { limit: 1 });
-        if (history && history.length > 0) {
-          const lastMsg = history[0];
-          console.log(`✅ ACCESO CONFIRMADO: Leído último mensaje de Magic: "${lastMsg.text ? lastMsg.text.substring(0, 20) : '[Media]'}" (${lastMsg.date})`);
-        } else {
-          console.warn(`⚠️ ACCESO DUDOSO: No se encontraron mensajes en el historial de Magic.`);
-        }
-      } catch (err) {
-        console.error(`❌ ERROR DE ACCESO a Magic Channel:`, err.message);
-        console.error(`   Posible causa: El bot no está unido al canal, o el ID requiere prefijo -100.`);
-      }
-
+      console.log(`👂 Escuchando mensajes de canales: ${channelsToListen.join(', ')}...`);
     } catch (error) {
       console.error('❌ Error al iniciar Telegram listener:', error.message);
       console.error('   Verifica que las variables de entorno estén correctas.');
@@ -122,23 +104,7 @@ class TelegramSignalListener {
       const message = event.message;
       const text = message.text || message.message || '';
 
-      // Permitir mensajes vacíos para debug (pueden ser solo imágenes)
-      // if (!text || text.trim() === '') return; 
-
-      // Obtener info del chat para debug
-      let chatTitle = 'Desconocido';
-      let chatId = 'Desconocido';
-      try {
-        const chat = await message.getChat();
-        if (chat) {
-          chatTitle = chat.title || 'Privado';
-          chatId = chat.id.toString();
-          // GramJS a veces devuelve el ID sin el prefijo -100
-          console.log(`🔎 DEBUG: Mensaje de "${chatTitle}" | ID: ${chatId} | PeerID: ${message.peerId ? message.peerId.channelId : 'N/A'}`);
-        }
-      } catch (e) {
-        console.log('🔎 DEBUG: Error obteniendo info del chat:', e.message);
-      }
+      if (!text || text.trim() === '') return;
 
       // Determinar origen
       // message.peerId.channelId suele ser BigInt
