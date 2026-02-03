@@ -89,10 +89,10 @@ exports.exportSignals = async (req, res) => {
 
         // Add Data
         signals.forEach(signal => {
-            // Format date to Bogotá time
+            // Format date to Venezuela time (GMT-4)
             const dateObj = new Date(signal.date);
-            const formattedDate = dateObj.toLocaleString('es-CO', {
-                timeZone: 'America/Bogota',
+            const formattedDate = dateObj.toLocaleString('es-VE', {
+                timeZone: 'America/Caracas',
                 year: 'numeric',
                 month: '2-digit',
                 day: '2-digit',
