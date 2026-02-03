@@ -2429,6 +2429,9 @@
             if (tabName === 'general') {
                 loadStatistics();
             }
+            if (tabName === 'signals') {
+                loadSignals();
+            }
         }
 
         async function loadSignals() {
@@ -3624,6 +3627,23 @@
                     addMessageToContainer(msg);
                     if (signalsContainer) {
                         signalsContainer.scrollTop = signalsContainer.scrollHeight;
+                    }
+                });
+
+                signalsSocket.on('telegram:new_signal', (newSignal) => {
+                    console.log('🔔 Nueva señal (auto-refresh):', newSignal);
+                    const signalsTab = document.getElementById('stats-signals');
+                    const dateInput = document.getElementById('signalStartDate');
+
+                    // Solo recargar si la pestaña está visible y es el día actual
+                    if (signalsTab && signalsTab.style.display !== 'none') {
+                        const today = new Date().toISOString().split('T')[0];
+                        // Ajuste zona horaria local simple
+                        const localToday = new Date().toLocaleDateString('en-CA'); // format YYYY-MM-DD local
+
+                        if (!dateInput.value || dateInput.value === localToday || dateInput.value === today) {
+                            loadSignals();
+                        }
                     }
                 });
 

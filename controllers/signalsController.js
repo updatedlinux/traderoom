@@ -89,8 +89,21 @@ exports.exportSignals = async (req, res) => {
 
         // Add Data
         signals.forEach(signal => {
+            // Format date to Bogotá time
+            const dateObj = new Date(signal.date);
+            const formattedDate = dateObj.toLocaleString('es-CO', {
+                timeZone: 'America/Bogota',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+
             const row = worksheet.addRow({
-                date: signal.date,
+                date: formattedDate,
                 pair: signal.pair,
                 direction: signal.direction,
                 strategy: signal.strategy,
