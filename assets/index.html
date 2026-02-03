@@ -3014,49 +3014,57 @@
             const endDate = new Date(period.end_date + 'T00:00:00');
             const dailyTargetPct = parseFloat(period.daily_target_pct);
 
-            // Calcular proyección
-            let projectedCapital = parseFloat(period.initial_capital);
+            // Obtener datos reales de sesiones
+            const sessions = period.sessions || [];
+            const realSessions = {};
+            sessions.forEach(s => {
+                realSessions[s.date] = s;
+            });
+
+            // Calcular proyección dinámica
+            let currentCapitalFlow = parseFloat(period.initial_capital);
             const projection = [];
             const currentDate = new Date(startDate);
             let dayNumber = 1;
 
             while (currentDate <= endDate) {
-                const dailyTarget = projectedCapital * dailyTargetPct;
+                const dateStr = currentDate.toISOString().split('T')[0];
+                const realSession = realSessions[dateStr];
+
+                // Capital inicial para este día (Real si existe, o flujo proyectado)
+                let sessionInitialCapital = currentCapitalFlow;
+                if (realSession) {
+                    sessionInitialCapital = parseFloat(realSession.starting_capital);
+                }
+
+                const dailyTarget = sessionInitialCapital * dailyTargetPct;
+                const projectedCapitalEnd = sessionInitialCapital + dailyTarget;
+
                 projection.push({
                     day: dayNumber,
-                    date: new Date(currentDate).toISOString().split('T')[0],
+                    date: dateStr,
                     projectedPnL: dailyTarget,
-                    projectedCapital: projectedCapital + dailyTarget
+                    projectedCapital: projectedCapitalEnd,
+                    realPnL: realSession ? parseFloat(realSession.daily_pnl || 0) : null,
+                    realCapital: (realSession && (realSession.status === 'closed' || realSession.status === 'target_hit' || realSession.status === 'stopped_loss'))
+                        ? (parseFloat(realSession.starting_capital) + parseFloat(realSession.daily_pnl || 0))
+                        : null,
+                    status: realSession ? realSession.status : null,
+                    hasData: !!realSession
                 });
-                projectedCapital += dailyTarget;
+
+                // Flujo para el siguiente día
+                if (realSession && realSession.status === 'closed') {
+                    currentCapitalFlow = parseFloat(realSession.starting_capital) + parseFloat(realSession.daily_pnl || 0);
+                } else {
+                    currentCapitalFlow = projectedCapitalEnd;
+                }
+
                 currentDate.setDate(currentDate.getDate() + 1);
                 dayNumber++;
             }
 
-            // Obtener datos reales de sesiones
-            const sessions = period.sessions || [];
-            const realData = {};
-            sessions.forEach(session => {
-                realData[session.date] = {
-                    pnl: parseFloat(session.daily_pnl || 0),
-                    capital: parseFloat(session.starting_capital) + parseFloat(session.daily_pnl || 0),
-                    status: session.status
-                };
-            });
-
-            // Combinar datos
-            const combinedData = projection.map(proj => {
-                const real = realData[proj.date] || null;
-                return {
-                    day: proj.day,
-                    date: proj.date,
-                    projectedPnL: proj.projectedPnL,
-                    realPnL: real ? real.pnl : null,
-                    projectedCapital: proj.projectedCapital,
-                    realCapital: real ? real.capital : null,
-                    hasData: real !== null
-                };
-            });
+            const combinedData = projection;
 
             // Calcular totales
             const totalProjectedPnL = projection.reduce((sum, p) => sum + p.projectedPnL, 0);
@@ -3138,7 +3146,7 @@
                                     <td>$${d.projectedCapital.toFixed(2)}</td>
                                     <td>${d.realCapital !== null ? `$${d.realCapital.toFixed(2)}` : '-'}</td>
                                     <td>
-                                        ${d.hasData ? `<span class="status-badge ${realData[d.date].status}">${realData[d.date].status}</span>` : '-'}
+                                        ${d.hasData ? `<span class="status-badge ${d.status}">${d.status}</span>` : '-'}
                                     </td>
                                 </tr>
                             `;
