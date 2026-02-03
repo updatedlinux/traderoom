@@ -2108,8 +2108,11 @@
                 ` : ''}
                 
                 <div style="margin: 20px 0; padding: 15px; background: #e3f2fd; border-radius: 8px; border: 1px solid #010332;">
-                    <button class="btn" id="btn-open-signals-modal" style="background: #010332; width: 100%; max-width: 300px;">
-                        <i class="fas fa-satellite-dish"></i> 📡 Ver Señales en vivo
+                    <button class="btn btn-primary btn-full" onclick="openSignalsModal('pocket')" style="background: #010332; width: 100%; max-width: 300px; margin-bottom: 10px;">
+                        <i class="fas fa-robot"></i> Ver Señales de Bot Pocket En vivo
+                    </button>
+                    <button class="btn btn-secondary btn-full" onclick="openSignalsModal('magic')" style="background: #6f42c1; color: white; width: 100%; max-width: 300px;">
+                        <i class="fas fa-magic"></i> Ver Señales de Trader Magico
                     </button>
                     <small style="color: #666; display: block; margin-top: 8px;">Visualiza las señales de trading en tiempo real desde Telegram.</small>
                 </div>
@@ -2153,14 +2156,6 @@
                             Si el broker redondea el monto (ej: $8.87 → $9), ingresa aquí el PnL real obtenido. 
                             Si se deja vacío, se calculará automáticamente con el monto y payout indicados.
                         </small>
-                    </div>
-                    <div class="card-action">
-                        <button class="btn btn-primary btn-full" onclick="openSignalsModal('pocket')">
-                            <i class="fas fa-robot"></i> Ver Señales de Bot Pocket En vivo
-                        </button>
-                        <button class="btn btn-secondary btn-full" style="margin-top: 10px; background-color: #6f42c1; color: white;" onclick="openSignalsModal('magic')">
-                            <i class="fas fa-magic"></i> Ver Señales de Trader Magico
-                        </button>
                     </div>
                     <div class="trading-controls">
                         <button class="btn trade-result-btn itm" onclick="registerTrade('ITM')">
