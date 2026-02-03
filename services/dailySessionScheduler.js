@@ -7,12 +7,48 @@ const { TradingPeriod, DailySession } = require('../models');
 const { getOrCreateDailySession } = require('./tradingService');
 
 /**
+ * Cierra sesiones de días anteriores que quedaron en 'in_progress' o 'target_hit'
+ */
+async function closePreviousStaleSessions(bogotaDateStr) {
+  const { closeDailySession } = require('./tradingService');
+  const { Op } = require('sequelize');
+  
+  try {
+    console.log(`[SCHEDULER] Buscando sesiones abiertas anteriores al ${bogotaDateStr}...`);
+    
+    const staleSessions = await DailySession.findAll({
+      where: {
+        date: {
+          [Op.lt]: bogotaDateStr
+        },
+        status: {
+          [Op.in]: ['in_progress', 'target_hit', 'stopped_loss'] // stopped_loss también debería cerrarse formalmente
+        }
+      }
+    });
+    
+    console.log(`[SCHEDULER] Encontradas ${staleSessions.length} sesiones antiguas abiertas`);
+    
+    for (const session of staleSessions) {
+      try {
+        console.log(`[SCHEDULER] Cerrando automáticamente sesión ID: ${session.id} (Fecha: ${session.date})`);
+        await closeDailySession(session.id);
+      } catch (error) {
+        console.error(`[SCHEDULER] Error al cerrar sesión ${session.id}:`, error.message);
+      }
+    }
+  } catch (error) {
+    console.error('[SCHEDULER] Error al procesar cierre de sesiones antiguas:', error);
+  }
+}
+
+/**
  * Crea sesiones diarias para todos los periodos activos
  * Esta función se ejecuta automáticamente a las 00:00 GMT-5 todos los días
  */
 async function createDailySessionsForActivePeriods() {
   try {
-    console.log('[SCHEDULER] Iniciando creación automática de sesiones diarias...');
+    console.log('[SCHEDULER] Iniciando proceso diario (00:00 Bogotá)...');
     
     // Obtener fecha actual en GMT-5 (Bogotá)
     const now = new Date();
@@ -20,7 +56,13 @@ async function createDailySessionsForActivePeriods() {
       timeZone: 'America/Bogota'
     }); // Formato: YYYY-MM-DD
     
-    console.log(`[SCHEDULER] Fecha objetivo: ${bogotaDateStr} (GMT-5 Bogotá)`);
+    console.log(`[SCHEDULER] Fecha de hoy: ${bogotaDateStr} (GMT-5 Bogotá)`);
+
+    // 1. Cerrar sesiones de días anteriores primero
+    await closePreviousStaleSessions(bogotaDateStr);
+
+    // 2. Crear las nuevas sesiones del día
+    console.log('[SCHEDULER] Iniciando creación automática de sesiones diarias...');
     
     // Buscar todos los periodos activos
     const activePeriods = await TradingPeriod.findAll({

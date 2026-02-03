@@ -2854,50 +2854,79 @@
             const startDate = new Date(period.start_date + 'T00:00:00');
             const endDate = new Date(period.end_date + 'T00:00:00');
             const dailyTargetPct = parseFloat(period.daily_target_pct);
+            const sessions = period.sessions || [];
+            
+            // Mapear sesiones reales para acceso rápido
+            const realSessions = {};
+            sessions.forEach(s => {
+                realSessions[s.date] = s;
+            });
 
-            let currentCapital = parseFloat(period.initial_capital);
             const projection = [];
             let totalProjectedPnL = 0;
-
+            let currentCapitalFlow = parseFloat(period.initial_capital);
+            
             const currentDate = new Date(startDate);
             let dayNumber = 1;
 
             while (currentDate <= endDate) {
-                const dailyTarget = currentCapital * dailyTargetPct;
-                const projectedCapital = currentCapital + dailyTarget;
+                const dateStr = currentDate.toISOString().split('T')[0];
+                const realSession = realSessions[dateStr];
+                
+                // Si hay sesión real, usamos su capital inicial real (o el final del día anterior)
+                // En TradeRoom, el starting_capital de una sesión es el current_capital del periodo en ese momento.
+                let sessionInitialCapital = currentCapitalFlow;
+                if (realSession) {
+                    sessionInitialCapital = parseFloat(realSession.starting_capital);
+                }
+
+                const dailyTarget = sessionInitialCapital * dailyTargetPct;
+                const projectedCapitalEnd = sessionInitialCapital + dailyTarget;
                 totalProjectedPnL += dailyTarget;
 
                 projection.push({
                     day: dayNumber,
-                    date: new Date(currentDate),
-                    capital: currentCapital,
+                    date: dateStr,
+                    initialCapital: sessionInitialCapital,
                     dailyTarget: dailyTarget,
-                    projectedCapital: projectedCapital
+                    projectedCapital: projectedCapitalEnd,
+                    isReal: !!realSession
                 });
 
-                currentCapital = projectedCapital;
+                // Para el flujo de proyección del SIGUIENTE día:
+                // Si el día que acabamos de procesar tuvo una sesión real cerrada, 
+                // el capital inicial del día siguiente debe basarse en el resultado real.
+                if (realSession && realSession.status === 'closed') {
+                    currentCapitalFlow = parseFloat(realSession.starting_capital) + parseFloat(realSession.daily_pnl || 0);
+                } else if (realSession && realSession.status !== 'closed') {
+                    // Si está en curso, aún usamos la proyección para el futuro, 
+                    // o podrías optar por usar el capital actual. Usaremos proyección para consistencia.
+                    currentCapitalFlow = projectedCapitalEnd;
+                } else {
+                    currentCapitalFlow = projectedCapitalEnd;
+                }
+
                 currentDate.setDate(currentDate.getDate() + 1);
                 dayNumber++;
             }
 
             const html = `
                 <div class="card">
-                    <h3>Proyección de PnL - Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''}</h3>
+                    <h3>Proyección Dinámica de PnL - Periodo ${period.id}${period.nickname ? ` - ${period.nickname}` : ''}</h3>
+                    <div style="background: rgba(1, 3, 50, 0.05); padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;">
+                        <i class="fas fa-info-circle"></i> Las metas futuras se recalculan automáticamente basándose en tu saldo real actual.
+                    </div>
                     <div class="stat-row">
                         <span class="stat-label">Capital Inicial:</span>
                         <span class="stat-value">$${parseFloat(period.initial_capital).toFixed(2)}</span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">Capital Final Proyectado:</span>
-                        <span class="stat-value">$${currentCapital.toFixed(2)}</span>
+                        <span class="stat-label">Capital Final Estimado:</span>
+                        <span class="stat-value">$${currentCapitalFlow.toFixed(2)}</span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">PnL Total Proyectado:</span>
+                        <span class="stat-label">PnL Total Proyectado (Restante):</span>
                         <span class="stat-value positive">$${totalProjectedPnL.toFixed(2)}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Días del Periodo:</span>
-                        <span class="stat-value">${projection.length}</span>
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">Meta Diaria (%):</span>
@@ -2913,17 +2942,21 @@
                                 <th>Fecha</th>
                                 <th>Capital Inicial</th>
                                 <th>Meta Diaria</th>
-                                <th>Capital Final Proyectado</th>
+                                <th>Capital Proyectado</th>
+                                <th>Tipo</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${projection.map(proj => `
-                                <tr>
+                                <tr style="${proj.isReal ? 'background: rgba(40, 167, 69, 0.05);' : ''}">
                                     <td>${proj.day}</td>
-                                    <td>${formatDateForDisplay(proj.date.toISOString().split('T')[0])}</td>
-                                    <td>$${proj.capital.toFixed(2)}</td>
+                                    <td>${formatDateForDisplay(proj.date)}</td>
+                                    <td>$${proj.initialCapital.toFixed(2)}</td>
                                     <td class="positive">$${proj.dailyTarget.toFixed(2)}</td>
                                     <td>$${proj.projectedCapital.toFixed(2)}</td>
+                                    <td>
+                                        ${proj.isReal ? '<span class="status-badge active" style="font-size: 10px;">Ajustado</span>' : '<span class="status-badge" style="background:#eee; color:#666; font-size: 10px;">Teórico</span>'}
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
