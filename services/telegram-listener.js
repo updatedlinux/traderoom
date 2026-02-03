@@ -113,9 +113,57 @@ class TelegramSignalListener {
 
       console.log('📨 Nuevo mensaje:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
 
+      // --- Lógica de Parsing de Señales ---
+      const { TradingSignal } = require('../models');
+
+      // Regex Patterns
+      const strategyRegex = /\*\*ESTRATEGIA\s+(.*?)\*\*/i;
+      const directionRegex = /POSIBLE ENTRADA\s+(PUT|CALL)/i;
+      const pairRegex = /\*\*Activo:\*\*\s+([A-Z0-9-]+)/i;
+      const conditionsRegex = /⚠️\s+\*\*(.*?)\*\*/g;
+
+      // Extract Data
+      const strategyMatch = text.match(strategyRegex);
+      const directionMatch = text.match(directionRegex);
+      const pairMatch = text.match(pairRegex);
+
+      let conditions = [];
+      let match;
+      while ((match = conditionsRegex.exec(text)) !== null) {
+        conditions.push(match[1]);
+      }
+
+      // Si es una señal válida (tiene al menos par y dirección), guardar en BD
+      if (pairMatch && directionMatch) {
+        try {
+          const newSignal = await TradingSignal.create({
+            date: new Date(), // Fecha actual de recepción
+            message_id: messageObj.id,
+            raw_message: text,
+            pair: pairMatch[1],
+            direction: directionMatch[1], // PUT o CALL
+            strategy: strategyMatch ? strategyMatch[1] : 'Desconocida',
+            conditions: conditions.join(' | '),
+            expiration: '1 a 4 minutos' // Default según el formato visto, podría extraerse también
+          });
+          console.log(`💾 Señal Guardada: ${newSignal.pair} ${newSignal.direction} (${newSignal.strategy})`);
+
+          // Añadir datos parseados al objeto que se emite al frontend
+          messageObj.parsed = newSignal.toJSON();
+
+        } catch (dbError) {
+          console.error('❌ Error guardando señal en BD:', dbError.message);
+        }
+      }
+      // -------------------------------------
+
       // Emitir por Socket.io
       if (this.io) {
         this.io.emit('telegram:new_message', messageObj);
+        // También emitir evento específico de señal si se guardó
+        if (messageObj.parsed) {
+          this.io.emit('telegram:new_signal', messageObj.parsed);
+        }
       }
     } catch (error) {
       console.error('❌ Error al procesar mensaje de Telegram:', error.message);

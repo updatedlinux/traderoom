@@ -2,6 +2,7 @@ const User = require('./User');
 const TradingPeriod = require('./TradingPeriod');
 const DailySession = require('./DailySession');
 const Trade = require('./Trade');
+const TradingSignal = require('./TradingSignal');
 
 // Definir relaciones
 TradingPeriod.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
@@ -17,6 +18,7 @@ module.exports = {
   User,
   TradingPeriod,
   DailySession,
-  Trade
+  Trade,
+  TradingSignal
 };
 

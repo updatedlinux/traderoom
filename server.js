@@ -58,6 +58,7 @@ app.use(express.static(path.join(__dirname, 'assets')));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/statistics', require('./routes/statistics')); // Debe ir ANTES de /api para evitar conflicto
+app.use('/api/signals', require('./routes/signals')); // Nueva ruta para señales
 app.use('/api', telegramRoutes); // Rutas de Telegram (debe ir antes de traderRoutes)
 app.use('/api', traderRoutes); // Esta es más general, debe ir al final
 
@@ -98,12 +99,12 @@ app.set('io', io);
 sequelize.authenticate()
   .then(() => {
     console.log('Conexión a MariaDB establecida correctamente.');
-    
+
     // Configurar cron job para crear sesiones diarias automáticamente a las 00:00 GMT-5
     try {
       const cron = require('node-cron');
       const { createDailySessionsForActivePeriods } = require('./services/dailySessionScheduler');
-      
+
       // Cron job que se ejecuta todos los días a las 00:00 en GMT-5 (Bogotá)
       // Nota: node-cron usa la zona horaria del servidor, pero como configuramos TZ='America/Bogota',
       // el cron se ejecutará a las 00:00 hora de Bogotá
@@ -115,19 +116,19 @@ sequelize.authenticate()
       }, {
         timezone: 'America/Bogota' // Asegurar que se ejecute en zona horaria de Bogotá
       });
-      
+
       console.log('[CRON] Tarea programada configurada: Creación automática de sesiones diarias a las 00:00 GMT-5 (Bogotá)');
     } catch (error) {
       console.warn('[CRON] No se pudo configurar el cron job. Asegúrate de que node-cron esté instalado:', error.message);
       console.warn('[CRON] Ejecuta: npm install node-cron');
     }
-    
+
     // Inicializar Telegram Signal Listener
     try {
       const TelegramSignalListener = require('./services/telegram-listener');
       const telegramListener = new TelegramSignalListener(io);
       app.set('telegramListener', telegramListener);
-      
+
       // Iniciar listener de Telegram (no bloquea si no está configurado)
       telegramListener.start().catch((error) => {
         console.warn('⚠️  No se pudo iniciar el listener de Telegram:', error.message);
@@ -136,7 +137,7 @@ sequelize.authenticate()
       console.warn('⚠️  Error al inicializar Telegram listener:', error.message);
       console.warn('   Asegúrate de que las dependencias estén instaladas: npm install telegram input');
     }
-    
+
     // Iniciar servidor HTTP (con Socket.io) en puerto backend
     server.listen(PORT_BACKEND, () => {
       console.log(`🚀 Servidor backend escuchando en puerto ${PORT_BACKEND}`);
