@@ -87,9 +87,12 @@ class TelegramSignalListener {
       await this.client.getDialogs({});
 
       // Registrar handler para nuevos mensajes
+      // Registrar handler para nuevos mensajes
+      // NOTA: Usamos un filtro vacío y filtramos manualmente en handleNewMessage
+      // Esto es más robusto y evita errores si el ID de Peer != ID de Chat esperado
       this.client.addEventHandler(
         this.handleNewMessage.bind(this),
-        new NewMessage({ chats: channelsToListen })
+        new NewMessage({})
       );
 
       console.log(`👂 Escuchando mensajes de canales: ${channelsToListen.join(', ')}...`);
@@ -106,26 +109,32 @@ class TelegramSignalListener {
 
       if (!text || text.trim() === '') return;
 
-      // Determinar origen
-      // message.peerId.channelId suele ser BigInt
-      let source = 'unknown';
-      // channelIdNum es el del Bot Pocket, magicChannelId el nuevo
-      // Comparación segura con strings para evitar problemas de BigInt
+      // Intentar obtener ID del chat de varias formas para ser robustos
+      let chatId = ''; // ID que viene en el objeto chat
+      try {
+        if (message.chat) {
+          chatId = message.chat.id.toString();
+        } else if (message.peerId) {
+          // Si es un canal, peerId.channelId suele estar presente
+          if (message.peerId.channelId) chatId = message.peerId.channelId.toString();
+        }
+      } catch (e) { }
 
-      const msgChatId = message.peerId && message.peerId.channelId ? message.peerId.channelId.toString() : '';
-      const pocketIdStr = this.channelId.toString().replace(/^-100/, '').replace(/^-/, ''); // Telegram a veces quita el prefijo en peerId
+      // Determinar origen
+      let source = 'unknown';
+
+      // message.peerId.channelId suele ser BigInt.
+      const msgChatId = message.peerId && message.peerId.channelId ? message.peerId.channelId.toString() : chatId;
+
+      // IDs limpios para comparar (sin prefijos)
+      const pocketIdStr = this.channelId.toString().replace(/^-100/, '').replace(/^-/, '');
       const magicIdStr = this.magicChannelId.toString().replace(/^-100/, '').replace(/^-/, '');
 
-      // Comparar contra el ID obtenido o el peerId
-      if (msgChatId === pocketIdStr || chatId.includes(pocketIdStr)) {
+      // Comparación robusta
+      if (msgChatId.includes(pocketIdStr) || (chatId && chatId.includes(pocketIdStr))) {
         source = 'pocket';
-      } else if (msgChatId === magicIdStr || chatId.includes(magicIdStr)) {
+      } else if (msgChatId.includes(magicIdStr) || (chatId && chatId.includes(magicIdStr))) {
         source = 'magic';
-      } else {
-        // Si no coincide con ninguno, lo ignoramos en producción, pero en debug lo logueamos
-        console.log(`⚠️ ID no coincide con esperados. Recibido: ${msgChatId} (ChatID: ${chatId}) vs Pocket:${pocketIdStr} / Magic:${magicIdStr}`);
-        // NO asignamos source por defecto, para no mezclar canales random
-        // source = 'unknown'; 
       }
 
       if (source === 'unknown') return; // Ignorar mensajes de otros chats
