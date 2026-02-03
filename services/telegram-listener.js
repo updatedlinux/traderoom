@@ -95,6 +95,22 @@ class TelegramSignalListener {
 
       console.log(`👂 Escuchando TODOS los mensajes entrantes (Modo Debug)...`);
       console.log(`   Esperando canales: Pocket(${channelIdNum}), Magic(${this.magicChannelId})`);
+
+      // 🔍 PRUEBA DE ACCESO EXPLÍCITA
+      try {
+        console.log(`🔍 Intentando leer historial del canal Magic (${this.magicChannelId})...`);
+        const history = await this.client.getMessages(this.magicChannelId, { limit: 1 });
+        if (history && history.length > 0) {
+          const lastMsg = history[0];
+          console.log(`✅ ACCESO CONFIRMADO: Leído último mensaje de Magic: "${lastMsg.text ? lastMsg.text.substring(0, 20) : '[Media]'}" (${lastMsg.date})`);
+        } else {
+          console.warn(`⚠️ ACCESO DUDOSO: No se encontraron mensajes en el historial de Magic.`);
+        }
+      } catch (err) {
+        console.error(`❌ ERROR DE ACCESO a Magic Channel:`, err.message);
+        console.error(`   Posible causa: El bot no está unido al canal, o el ID requiere prefijo -100.`);
+      }
+
     } catch (error) {
       console.error('❌ Error al iniciar Telegram listener:', error.message);
       console.error('   Verifica que las variables de entorno estén correctas.');
@@ -106,7 +122,8 @@ class TelegramSignalListener {
       const message = event.message;
       const text = message.text || message.message || '';
 
-      if (!text || text.trim() === '') return;
+      // Permitir mensajes vacíos para debug (pueden ser solo imágenes)
+      // if (!text || text.trim() === '') return; 
 
       // Obtener info del chat para debug
       let chatTitle = 'Desconocido';
