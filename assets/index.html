@@ -2108,12 +2108,14 @@
                 ` : ''}
                 
                 <div style="margin: 20px 0; padding: 15px; background: #e3f2fd; border-radius: 8px; border: 1px solid #010332;">
-                    <button class="btn btn-primary btn-full" onclick="openSignalsModal('pocket')" style="background: #010332; width: 100%; max-width: 300px; margin-bottom: 10px;">
-                        <i class="fas fa-robot"></i> Ver Señales de Bot Pocket En vivo
-                    </button>
-                    <button class="btn btn-secondary btn-full" onclick="openSignalsModal('magic')" style="background: #6f42c1; color: white; width: 100%; max-width: 300px;">
-                        <i class="fas fa-magic"></i> Ver Señales de Trader Magico
-                    </button>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="openSignalsModal('pocket')" style="background: #010332; flex: 1; min-width: 200px; display: flex; justify-content: center; align-items: center;">
+                            <i class="fas fa-robot" style="margin-right: 8px;"></i> Ver Señales de Bot Pocket En vivo
+                        </button>
+                        <button class="btn btn-secondary" onclick="openSignalsModal('magic')" style="background: #6f42c1; color: white; flex: 1; min-width: 200px; display: flex; justify-content: center; align-items: center;">
+                            <i class="fas fa-magic" style="margin-right: 8px;"></i> Ver Señales de Trader Magico
+                        </button>
+                    </div>
                     <small style="color: #666; display: block; margin-top: 8px;">Visualiza las señales de trading en tiempo real desde Telegram.</small>
                 </div>
                 ${canTrade ? `
