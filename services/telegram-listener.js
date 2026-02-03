@@ -82,13 +82,19 @@ class TelegramSignalListener {
       // Lista de canales a escuchar
       const channelsToListen = [channelIdNum, this.magicChannelId];
 
+      // Cargar diálogos para asegurar que las entidades sean conocidas
+      console.log('📚 Cargando lista de chats (getDialogs) para resolver IDs...');
+      await this.client.getDialogs({});
+
       // Registrar handler para nuevos mensajes
+      // NOTA: Quitamos el filtro 'chats' temporalmente para depurar y ver qué ID llega realmente
       this.client.addEventHandler(
         this.handleNewMessage.bind(this),
-        new NewMessage({ chats: channelsToListen })
+        new NewMessage({})
       );
 
-      console.log(`👂 Escuchando mensajes de canales: ${channelsToListen.join(', ')}...`);
+      console.log(`👂 Escuchando TODOS los mensajes entrantes (Modo Debug)...`);
+      console.log(`   Esperando canales: Pocket(${channelIdNum}), Magic(${this.magicChannelId})`);
     } catch (error) {
       console.error('❌ Error al iniciar Telegram listener:', error.message);
       console.error('   Verifica que las variables de entorno estén correctas.');
@@ -102,6 +108,21 @@ class TelegramSignalListener {
 
       if (!text || text.trim() === '') return;
 
+      // Obtener info del chat para debug
+      let chatTitle = 'Desconocido';
+      let chatId = 'Desconocido';
+      try {
+        const chat = await message.getChat();
+        if (chat) {
+          chatTitle = chat.title || 'Privado';
+          chatId = chat.id.toString();
+          // GramJS a veces devuelve el ID sin el prefijo -100
+          console.log(`🔎 DEBUG: Mensaje de "${chatTitle}" | ID: ${chatId} | PeerID: ${message.peerId ? message.peerId.channelId : 'N/A'}`);
+        }
+      } catch (e) {
+        console.log('🔎 DEBUG: Error obteniendo info del chat:', e.message);
+      }
+
       // Determinar origen
       // message.peerId.channelId suele ser BigInt
       let source = 'unknown';
@@ -112,19 +133,19 @@ class TelegramSignalListener {
       const pocketIdStr = this.channelId.toString().replace(/^-100/, '').replace(/^-/, ''); // Telegram a veces quita el prefijo en peerId
       const magicIdStr = this.magicChannelId.toString().replace(/^-100/, '').replace(/^-/, '');
 
-      // Nota: peerId.channelId suele ser positivo en gramjs, sin el -100
-      if (msgChatId === pocketIdStr) {
+      // Comparar contra el ID obtenido o el peerId
+      if (msgChatId === pocketIdStr || chatId.includes(pocketIdStr)) {
         source = 'pocket';
-      } else if (msgChatId === magicIdStr) {
+      } else if (msgChatId === magicIdStr || chatId.includes(magicIdStr)) {
         source = 'magic';
       } else {
-        // Fallback por si acaso
-        source = 'pocket'; // Asumimos default si viene de la suscripción, aunque debería coincidir
-        console.log(`⚠️ ID Canal recibido: ${msgChatId} (Pocket: ${pocketIdStr}, Magic: ${magicIdStr}) - Asignando 'pocket' por defecto o revisando lógica.`);
-        // Ajuste rápido: Si estamos escuchando, asumimos que si no es magic es pocket.
-        if (msgChatId === magicIdStr) source = 'magic';
-        else source = 'pocket';
+        // Si no coincide con ninguno, lo ignoramos en producción, pero en debug lo logueamos
+        console.log(`⚠️ ID no coincide con esperados. Recibido: ${msgChatId} (ChatID: ${chatId}) vs Pocket:${pocketIdStr} / Magic:${magicIdStr}`);
+        // NO asignamos source por defecto, para no mezclar canales random
+        // source = 'unknown'; 
       }
+
+      if (source === 'unknown') return; // Ignorar mensajes de otros chats
 
       const messageObj = {
         id: message.id.toString(),
