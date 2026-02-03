@@ -3635,13 +3635,29 @@
                     const signalsTab = document.getElementById('stats-signals');
                     const dateInput = document.getElementById('signalStartDate');
 
-                    // Solo recargar si la pestaña está visible y es el día actual
+                    // Solo recargar si la pestaña está visible
                     if (signalsTab && signalsTab.style.display !== 'none') {
-                        const today = new Date().toISOString().split('T')[0];
-                        // Ajuste zona horaria local simple
-                        const localToday = new Date().toLocaleDateString('en-CA'); // format YYYY-MM-DD local
+                        // Si no hay fecha, refrescar
+                        if (!dateInput.value) {
+                            console.log('Refrescando señales (sin filtro de fecha)');
+                            loadSignals();
+                            return;
+                        }
 
-                        if (!dateInput.value || dateInput.value === localToday || dateInput.value === today) {
+                        // Comparar fecha de la señal con el input
+                        // newSignal.date es UTC ISO
+                        const signalDate = new Date(newSignal.date);
+
+                        // Construir fecha local YYYY-MM-DD
+                        const year = signalDate.getFullYear();
+                        const month = String(signalDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(signalDate.getDate()).padStart(2, '0');
+                        const signalDateStr = `${year}-${month}-${day}`;
+
+                        console.log(`Auto-Refresh Check: Input=${dateInput.value} vs Signal=${signalDateStr}`);
+
+                        if (dateInput.value === signalDateStr) {
+                            console.log('Refrescando señales (Fecha coincide)');
                             loadSignals();
                         }
                     }
