@@ -152,7 +152,12 @@ class TelegramSignalListener {
         source = 'magic';
       }
 
-      if (source === 'unknown') return; // Ignorar mensajes de otros chats
+      if (source === 'unknown') {
+        // DEBUG: Ver qué llega que no estamos reconociendo
+        // Descomentar para ver todo el tráfico en consola si es necesario
+        console.log(`⚠️ Mensaje IGNORADO (Fuente desconocida): ID en evento: ${msgChatId}, ID Chat: ${chatId}. Esperado Magic: ${magicIdStr}`);
+        return;
+      }
 
       const messageObj = {
         id: message.id.toString(),
