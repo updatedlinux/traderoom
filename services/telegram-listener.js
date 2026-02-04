@@ -124,6 +124,8 @@ class TelegramSignalListener {
   startMagicPolling() {
     if (!this.magicChannelId) return;
 
+    this.lastPolledId = null; // Rastrear ultimo ID procesado
+
     console.log('🔄 Iniciando Polling de respaldo (5s) para Trader Magico...');
     setInterval(async () => {
       try {
@@ -131,8 +133,15 @@ class TelegramSignalListener {
 
         const msgs = await this.client.getMessages(this.magicChannelId, { limit: 1 });
         if (msgs && msgs.length > 0) {
+          const m = msgs[0];
+          // Si es el mismo ID que ya procesamos, ignorar
+          if (this.lastPolledId && this.lastPolledId === m.id.toString()) {
+            return;
+          }
+
+          this.lastPolledId = m.id.toString();
           // Enviamos al mismo handler. El mecanismo de deduplicación interno evitará repetidos.
-          await this.handleNewMessage({ message: msgs[0] });
+          await this.handleNewMessage({ message: m });
         }
       } catch (e) {
         console.warn('⚠️ Error en polling de Magic:', e.message);
