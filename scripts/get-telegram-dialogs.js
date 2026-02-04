@@ -43,30 +43,31 @@ require('dotenv').config();
     }
 
     console.log('\n📋 Obteniendo lista de canales y grupos...\n');
-    const dialogs = await client.getDialogs({ limit: 100 });
+    const dialogs = await client.getDialogs({});
 
-    console.log('📋 Tus canales/grupos de Telegram:\n');
-    console.log('─'.repeat(60));
-    
-    const channels = [];
-    dialogs.forEach((dialog) => {
+    console.log(`\n📋 Tus canales/grupos de Telegram (Filtrando por "Magic" o "SEÑALES"):`);
+    console.log('\n────────────────────────────────────────────────────────────');
+
+    let found = false;
+    for (const dialog of dialogs) {
+      const name = dialog.title || '';
+      // Filtramos para encontrar el canal correcto
       if (dialog.isChannel || dialog.isGroup) {
-        const type = dialog.isChannel ? 'Canal' : 'Grupo';
-        console.log(`${type}: ${dialog.title}`);
-        console.log(`   ID: ${dialog.id}`);
-        console.log(`   Username: ${dialog.entity.username || 'N/A'}`);
-        console.log('─'.repeat(60));
-        channels.push({ id: dialog.id, title: dialog.title, type, username: dialog.entity.username });
+        if (name.toLowerCase().includes('magic') || name.toLowerCase().includes('señales')) {
+          found = true;
+          console.log(`Nombre: ${name}`);
+          console.log(`   ID: ${dialog.id}`);
+          console.log(`   Username: ${dialog.entity?.username || 'N/A'}`);
+          console.log('────────────────────────────────────────────────────────────');
+        }
       }
-    });
-
-    if (channels.length === 0) {
-      console.log('No se encontraron canales o grupos.');
-    } else {
-      console.log(`\n✅ Total: ${channels.length} canales/grupos encontrados`);
-      console.log('\n💡 Copia el ID del canal de señales y añádelo a .env como:');
-      console.log('   TELEGRAM_SIGNAL_CHANNEL_ID=<ID_DEL_CANAL>');
     }
+
+    if (!found) {
+      console.log("❌ No se encontraron canales con 'Magic' o 'Señales' en el nombre.");
+    }
+
+    console.log(`\n✅ Búsqueda finalizada.`);
 
     await client.disconnect();
     process.exit(0);

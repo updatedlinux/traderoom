@@ -102,7 +102,6 @@ class TelegramSignalListener {
       }
 
       // Registrar handler para nuevos mensajes
-      // Registrar handler para nuevos mensajes
       // NOTA: Usamos un filtro vacío y filtramos manualmente en handleNewMessage
       // Esto es más robusto y evita errores si el ID de Peer != ID de Chat esperado
       this.client.addEventHandler(
@@ -111,10 +110,34 @@ class TelegramSignalListener {
       );
 
       console.log(`👂 Escuchando mensajes de canales: ${channelsToListen.join(', ')}...`);
+
+      // Iniciar Polling de respaldo para Trader Magico (Ya que los eventos a veces fallan en este canal)
+      this.startMagicPolling();
+
     } catch (error) {
       console.error('❌ Error al iniciar Telegram listener:', error.message);
       console.error('   Verifica que las variables de entorno estén correctas.');
     }
+  }
+
+  // Polling de respaldo para canales problemáticos
+  startMagicPolling() {
+    if (!this.magicChannelId) return;
+
+    console.log('🔄 Iniciando Polling de respaldo (5s) para Trader Magico...');
+    setInterval(async () => {
+      try {
+        if (!this.client || !this.client.connected) return;
+
+        const msgs = await this.client.getMessages(this.magicChannelId, { limit: 1 });
+        if (msgs && msgs.length > 0) {
+          // Enviamos al mismo handler. El mecanismo de deduplicación interno evitará repetidos.
+          await this.handleNewMessage({ message: msgs[0] });
+        }
+      } catch (e) {
+        console.warn('⚠️ Error en polling de Magic:', e.message);
+      }
+    }, 5000); // Cada 5 segundos
   }
 
   async handleNewMessage(event) {
